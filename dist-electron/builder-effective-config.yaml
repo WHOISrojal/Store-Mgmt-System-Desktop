@@ -1,0 +1,9 @@
+directories:
+  output: dist-electron
+  buildResources: build
+appId: com.store.management
+productName: Store Management System
+win:
+  target: nsis
+files: []
+electronVersion: 42.3.0

@@ -1,0 +1,82 @@
+[33mcommit 3a3e0cabe0595bdd93439d77facef650d33d17fb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: Rojal Manandhar <rojal2002@gmail.com>
+Date:   Thu Jun 11 21:55:37 2026 +0545
+
+    Fix Updated Git Ignore
+
+ .gitignore                                         |      2 [32m+[m[31m-[m
+ dist-electron/win-unpacked/LICENSE.electron.txt    |     21 [31m-[m
+ dist-electron/win-unpacked/LICENSES.chromium.html  | 358915 [31m------------------[m
+ .../win-unpacked/Store Management System.exe       |    Bin [31m226869248[m -> [32m0[m bytes
+ dist-electron/win-unpacked/chrome_100_percent.pak  |    Bin [31m119889[m -> [32m0[m bytes
+ dist-electron/win-unpacked/chrome_200_percent.pak  |    Bin [31m197073[m -> [32m0[m bytes
+ dist-electron/win-unpacked/d3dcompiler_47.dll      |    Bin [31m4741488[m -> [32m0[m bytes
+ dist-electron/win-unpacked/dxcompiler.dll          |    Bin [31m25723392[m -> [32m0[m bytes
+ dist-electron/win-unpacked/dxil.dll                |    Bin [31m1509760[m -> [32m0[m bytes
+ dist-electron/win-unpacked/ffmpeg.dll              |    Bin [31m3036160[m -> [32m0[m bytes
+ dist-electron/win-unpacked/icudtl.dat              |    Bin [31m10876560[m -> [32m0[m bytes
+ dist-electron/win-unpacked/libEGL.dll              |    Bin [31m508928[m -> [32m0[m bytes
+ dist-electron/win-unpacked/libGLESv2.dll           |    Bin [31m8112128[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/af.pak          |    Bin [31m620482[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/am.pak          |    Bin [31m1006731[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ar.pak          |    Bin [31m1109627[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/bg.pak          |    Bin [31m1150764[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/bn.pak          |    Bin [31m1479936[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ca.pak          |    Bin [31m699584[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/cs.pak          |    Bin [31m726069[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/da.pak          |    Bin [31m652599[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/de.pak          |    Bin [31m700799[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/el.pak          |    Bin [31m1265039[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/en-GB.pak       |    Bin [31m565496[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/en-US.pak       |    Bin [31m571518[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/es-419.pak      |    Bin [31m690699[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/es.pak          |    Bin [31m686799[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/et.pak          |    Bin [31m627098[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/fa.pak          |    Bin [31m1038151[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/fi.pak          |    Bin [31m638637[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/fil.pak         |    Bin [31m723756[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/fr.pak          |    Bin [31m746468[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/gu.pak          |    Bin [31m1462607[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/he.pak          |    Bin [31m908717[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/hi.pak          |    Bin [31m1549657[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/hr.pak          |    Bin [31m698898[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/hu.pak          |    Bin [31m747469[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/id.pak          |    Bin [31m618246[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/it.pak          |    Bin [31m675917[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ja.pak          |    Bin [31m824127[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/kn.pak          |    Bin [31m1681104[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ko.pak          |    Bin [31m701212[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/lt.pak          |    Bin [31m759941[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/lv.pak          |    Bin [31m757295[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ml.pak          |    Bin [31m1728736[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/mr.pak          |    Bin [31m1431694[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ms.pak          |    Bin [31m651309[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/nb.pak          |    Bin [31m623206[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/nl.pak          |    Bin [31m649223[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/pl.pak          |    Bin [31m725422[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/pt-BR.pak       |    Bin [31m680438[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/pt-PT.pak       |    Bin [31m684180[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ro.pak          |    Bin [31m710046[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ru.pak          |    Bin [31m1177833[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/sk.pak          |    Bin [31m738142[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/sl.pak          |    Bin [31m706747[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/sr.pak          |    Bin [31m1088532[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/sv.pak          |    Bin [31m630691[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/sw.pak          |    Bin [31m667151[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ta.pak          |    Bin [31m1720238[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/te.pak          |    Bin [31m1591907[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/th.pak          |    Bin [31m1337523[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/tr.pak          |    Bin [31m679644[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/uk.pak          |    Bin [31m1185632[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/ur.pak          |    Bin [31m1021689[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/vi.pak          |    Bin [31m808093[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/zh-CN.pak       |    Bin [31m577794[m -> [32m0[m bytes
+ dist-electron/win-unpacked/locales/zh-TW.pak       |    Bin [31m570101[m -> [32m0[m bytes
+ dist-electron/win-unpacked/resources.pak           |    Bin [31m6876288[m -> [32m0[m bytes
+ dist-electron/win-unpacked/resources/app.asar      |    Bin [31m44789378[m -> [32m0[m bytes
+ dist-electron/win-unpacked/snapshot_blob.bin       |    Bin [31m346432[m -> [32m0[m bytes
+ dist-electron/win-unpacked/v8_context_snapshot.bin |    Bin [31m721176[m -> [32m0[m bytes
+ dist-electron/win-unpacked/vk_swiftshader.dll      |    Bin [31m5611520[m -> [32m0[m bytes
+ dist-electron/win-unpacked/vk_swiftshader_icd.json |      1 [31m-[m
+ dist-electron/win-unpacked/vulkan-1.dll            |    Bin [31m955392[m -> [32m0[m bytes
+ 75 files changed, 1 insertion(+), 358938 deletions(-)
