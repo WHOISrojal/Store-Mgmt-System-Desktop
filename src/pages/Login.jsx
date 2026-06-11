@@ -34,7 +34,7 @@ function Login() {
         response.data.name
       );
 
-      navigate("/");
+      window.location.href = "/";
 
     } catch (error) {
       console.error(error);
