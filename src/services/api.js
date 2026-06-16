@@ -1,7 +1,13 @@
 import axios from "axios";
 
+// const api = axios.create({
+//   baseURL: "https://store-mgmt-system-backend.onrender.com/api",
+// });
+
+console.log("API URL =", import.meta.env.VITE_API_URL);
+
 const api = axios.create({
-  baseURL: "https://store-mgmt-system-backend.onrender.com/api",
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 api.interceptors.request.use(
