@@ -159,7 +159,15 @@ function CustomerLedger() {
               <tbody>
                 {sales.map((sale) => (
                   <tr key={sale._id}>
-                    <td>{sale._id.slice(-6)}</td>
+                    <td>
+                      <a
+                        href={`/invoice/${sale._id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {sale._id.slice(-6)}
+                      </a>
+                    </td>
 
                     <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
 

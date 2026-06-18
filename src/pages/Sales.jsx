@@ -9,6 +9,9 @@ function Sales() {
   const [totalPages, setTotalPages] = useState(1);
   const [products, setProducts] = useState([]);
   const [paymentType, setPaymentType] = useState("CASH");
+  const [chequeNumber, setChequeNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [chequeDate, setChequeDate] = useState("");
   const [customer, setCustomer] = useState("");
   const [product, setProduct] = useState("");
   const [barcode, setBarcode] = useState("");
@@ -175,9 +178,18 @@ function Sales() {
         return alert("Paid amount cannot exceed total bill");
       }
 
+      if (paymentType === "CHEQUE") {
+        if (!chequeNumber || !bankName || !chequeDate) {
+          return alert("Cheque Number, Bank Name and Cheque Date are required");
+        }
+      }
       const saleResponse = await api.post("/sales", {
         customer,
         paymentType,
+
+        chequeNumber,
+        bankName,
+        chequeDate,
 
         items: cart.map((item) => ({
           product: item.product,
@@ -231,6 +243,22 @@ function Sales() {
       console.log(error.response?.data);
 
       alert(JSON.stringify(error.response?.data || error.message));
+    }
+  };
+
+  const updateChequeStatus = async (saleId, status) => {
+    try {
+      await api.put(`/sales/${saleId}/cheque-status`, {
+        status,
+      });
+
+      fetchSales();
+
+      alert(`Cheque marked as ${status}`);
+    } catch (error) {
+      console.error(error);
+
+      alert(error?.response?.data?.message || "Failed to update cheque");
     }
   };
 
@@ -343,8 +371,8 @@ function Sales() {
                 onChange={(e) => setPaymentType(e.target.value)}
               >
                 <option value="CASH">CASH</option>
-
                 <option value="CREDIT">CREDIT</option>
+                <option value="CHEQUE">CHEQUE</option>
               </select>
             </div>
 
@@ -360,6 +388,43 @@ function Sales() {
                   placeholder="0"
                 />
               </div>
+            )}
+
+            {paymentType === "CHEQUE" && (
+              <>
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold">
+                    Cheque Number
+                  </label>
+
+                  <input
+                    className="form-control"
+                    value={chequeNumber}
+                    onChange={(e) => setChequeNumber(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold">Bank Name</label>
+
+                  <input
+                    className="form-control"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold">Cheque Date</label>
+
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={chequeDate}
+                    onChange={(e) => setChequeDate(e.target.value)}
+                  />
+                </div>
+              </>
             )}
 
             <div className="col-md-6">
@@ -660,6 +725,8 @@ function Sales() {
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Payment</th>
+                <th>Cheque</th>
+                <th>Status</th>
                 <th>Items</th>
                 <th>Total Amount</th>
                 <th>Invoice</th>
@@ -686,6 +753,28 @@ function Sales() {
                     >
                       {sale.paymentType}
                     </span>
+                  </td>
+
+                  <td>
+                    {sale.paymentType === "CHEQUE" ? sale.chequeNumber : "-"}
+                  </td>
+
+                  <td>
+                    {sale.paymentType === "CHEQUE" ? (
+                      <span
+                        className={
+                          sale.chequeStatus === "CLEARED"
+                            ? "badge bg-success"
+                            : sale.chequeStatus === "BOUNCED"
+                              ? "badge bg-danger"
+                              : "badge bg-warning"
+                        }
+                      >
+                        {sale.chequeStatus}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
                   </td>
 
                   <td>{sale.items?.length || 0} Items</td>
@@ -725,6 +814,29 @@ function Sales() {
                       >
                         Delete
                       </button>
+
+                      {sale.paymentType === "CHEQUE" &&
+                        sale.chequeStatus === "PENDING" && (
+                          <>
+                            <button
+                              className="btn btn-success ms-2"
+                              onClick={() =>
+                                updateChequeStatus(sale._id, "CLEARED")
+                              }
+                            >
+                              Clear
+                            </button>
+
+                            <button
+                              className="btn btn-secondary ms-2"
+                              onClick={() =>
+                                updateChequeStatus(sale._id, "BOUNCED")
+                              }
+                            >
+                              Bounce
+                            </button>
+                          </>
+                        )}
                     </td>
                   )}
 

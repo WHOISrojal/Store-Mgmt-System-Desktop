@@ -91,7 +91,7 @@ function Invoice() {
       alert(error?.response?.data?.message || "Failed to process return");
     }
   };
-  if (!sale || !settings) { 
+  if (!sale || !settings) {
     return <h3>Loading...</h3>;
   }
 
@@ -134,6 +134,31 @@ function Invoice() {
                 <strong>Date:</strong>{" "}
                 {new Date(sale.createdAt).toLocaleDateString("en-GB")}
               </p>
+
+              <p className="mb-1">
+                <strong>Payment Type:</strong> {sale.paymentType}
+              </p>
+              
+              {sale.paymentType === "CHEQUE" && (
+                <>
+                  <p className="mb-1">
+                    <strong>Cheque No:</strong> {sale.chequeNumber}
+                  </p>
+
+                  <p className="mb-1">
+                    <strong>Bank:</strong> {sale.bankName}
+                  </p>
+
+                  <p className="mb-1">
+                    <strong>Cheque Date:</strong>{" "}
+                    {new Date(sale.chequeDate).toLocaleDateString("en-GB")}
+                  </p>
+
+                  <p className="mb-1">
+                    <strong>Cheque Status:</strong> {sale.chequeStatus}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="col-md-6 text-md-end">

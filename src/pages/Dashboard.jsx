@@ -23,6 +23,19 @@ ChartJS.register(
   Legend,
 );
 
+function DashboardCard({ title, value }) {
+  return (
+    <div className="col-md-3">
+      <div className="card border-0 shadow-sm h-100">
+        <div className="card-body text-center">
+          <h6>{title}</h6>
+          <h4>{value}</h4>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard() {
   const [data, setData] = useState({
     totalProducts: 0,
@@ -49,6 +62,15 @@ function Dashboard() {
     todayCreditSales: 0,
     todayCustomerPayments: 0,
     todayNetCash: 0,
+
+    pendingChequeAmount: 0,
+    todayCheques: [],
+    upcomingCheques: [],
+    overdueCheques: [],
+
+    clearedChequeAmount: 0,
+    bouncedChequeAmount: 0,
+    overdueChequeAmount: 0,
 
     topCategories: [],
   });
@@ -94,6 +116,54 @@ function Dashboard() {
     <div className="container-fluid">
       <h2 className="mb-4 fw-bold text-center">📊 Dashboard</h2>
 
+      {data.todayCheques?.length > 0 && (
+        <div className="alert alert-warning">
+          <h5>⚠ Cheques Due Today</h5>
+
+          {data.todayCheques.map((cheque) => (
+            <div key={cheque._id}>
+              <a
+                href={`/invoice/${cheque._id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="fw-bold"
+              >
+                INV-{cheque._id.slice(-6).toUpperCase()}
+              </a>
+              {" | "}
+              {cheque.customer?.name || "Walk-in Customer"}
+              {" | "}
+              Rs. {cheque.totalAmount}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.overdueCheques?.length > 0 && (
+        <div className="alert alert-danger">
+          <h5>⚠ Overdue Cheques</h5>
+
+          {data.overdueCheques.map((cheque) => (
+            <div key={cheque._id}>
+              <a
+                href={`/invoice/${cheque._id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="fw-bold"
+              >
+                INV-{cheque._id.slice(-6).toUpperCase()}
+              </a>
+              {" | "}
+              {cheque.customer?.name || "Walk-in Customer"}
+              {" | "}
+              Rs. {cheque.totalAmount}
+              {" | "}
+              {new Date(cheque.chequeDate).toLocaleDateString()}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="row g-4">
         <div className="col-md-4">
           <div
@@ -109,6 +179,26 @@ function Dashboard() {
               <div className="text-muted">Total Products</div>
 
               <h2 className="fw-bold mt-3">{data.totalProducts}</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-4">
+          <div
+            className="card border-0 shadow-sm h-100 bg-info text-white"
+            style={{
+              borderRadius: "15px",
+              minHeight: "180px",
+            }}
+          >
+            <div className="card-body text-center d-flex flex-column justify-content-center">
+              <div style={{ fontSize: "35px" }}>🏦</div>
+
+              <div>Pending Cheques</div>
+
+              <h4 className="fw-bold mt-3">
+                Rs. {data.pendingChequeAmount.toLocaleString()}
+              </h4>
             </div>
           </div>
         </div>
@@ -187,6 +277,46 @@ function Dashboard() {
               <h4 className="fw-bold mt-3">
                 Rs. {data.inventoryValue.toLocaleString()}
               </h4>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-4">
+          <div
+            className="card border-0 shadow-sm h-100"
+            style={{
+              borderRadius: "15px",
+              minHeight: "180px",
+            }}
+          >
+            <div className="card-body">
+              <h5 className="text-center mb-3">🏦 Cheque Summary</h5>
+
+              <div className="d-flex justify-content-between mb-2">
+                <span>Pending</span>
+                <strong>Rs. {data.pendingChequeAmount.toLocaleString()}</strong>
+              </div>
+
+              <div className="d-flex justify-content-between mb-2">
+                <span>Cleared</span>
+                <strong className="text-success">
+                  Rs. {data.clearedChequeAmount.toLocaleString()}
+                </strong>
+              </div>
+
+              <div className="d-flex justify-content-between mb-2">
+                <span>Bounced</span>
+                <strong className="text-danger">
+                  Rs. {data.bouncedChequeAmount.toLocaleString()}
+                </strong>
+              </div>
+
+              <div className="d-flex justify-content-between">
+                <span>Overdue</span>
+                <strong className="text-warning">
+                  Rs. {data.overdueChequeAmount.toLocaleString()}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
@@ -414,6 +544,43 @@ function Dashboard() {
         }}
       >
         <div className="card-body">
+          {data.upcomingCheques?.length > 0 && (
+            <div
+              className="card border-0 shadow-sm mt-4"
+              style={{
+                borderRadius: "15px",
+              }}
+            >
+              <div className="card-body">
+                <h3 className="text-center mb-4">🏦 Upcoming Cheques</h3>
+
+                <table className="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Cheque No</th>
+                      <th>Amount</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {data.upcomingCheques.map((sale) => (
+                      <tr key={sale._id}>
+                        <td>{sale.chequeNumber}</td>
+
+                        <td>Rs. {sale.totalAmount.toLocaleString()}</td>
+
+                        <td>
+                          {new Date(sale.chequeDate).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <h3 className="text-center mb-4">⚠ Low Stock Products</h3>
 
           {data.lowStockProducts.length === 0 ? (

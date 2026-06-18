@@ -22,6 +22,7 @@ import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import Suppliers from "./pages/Suppliers";
 import AuditLogs from "./pages/AuditLogs";
+import Cheques from "./pages/Cheques";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -44,25 +45,19 @@ function App() {
   };
 
   const navStyle = ({ isActive }) => ({
-  color: "white",
-  textDecoration: "none",
-  display: "block",
-  padding: "10px",
-  borderRadius: "8px",
-  marginBottom: "5px",
-  backgroundColor: isActive
-    ? "#3b82f6"
-    : "transparent",
-});
+    color: "white",
+    textDecoration: "none",
+    display: "block",
+    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "5px",
+    backgroundColor: isActive ? "#3b82f6" : "transparent",
+  });
 
   return (
     <BrowserRouter>
       <Routes>
-
-        <Route
-          path="/login"
-          element={<Login />}
-        />
+        <Route path="/login" element={<Login />} />
 
         <Route
           path="/*"
@@ -83,9 +78,7 @@ function App() {
                     minHeight: "100vh",
                   }}
                 >
-                  <h2 className="mb-4">
-                    🏪 Store Manager
-                  </h2>
+                  <h2 className="mb-4">🏪 Store Manager</h2>
 
                   <div
                     className="mb-4 p-3"
@@ -94,9 +87,7 @@ function App() {
                       borderRadius: "10px",
                     }}
                   >
-                    <strong>
-                      👤 {localStorage.getItem("name")}
-                    </strong>
+                    <strong>👤 {localStorage.getItem("name")}</strong>
                     <br />
                     <small>{role}</small>
                   </div>
@@ -128,10 +119,7 @@ function App() {
                     )}
 
                     <li>
-                      <NavLink
-                        to="/suppliers"
-                        style={navStyle}
-                      >
+                      <NavLink to="/suppliers" style={navStyle}>
                         🚚 Suppliers
                       </NavLink>
                     </li>
@@ -141,6 +129,14 @@ function App() {
                         💰 Sales
                       </NavLink>
                     </li>
+
+                    {role === "ADMIN" && (
+                      <li>
+                        <NavLink to="/cheques" style={navStyle}>
+                          🏦 Cheques
+                        </NavLink>
+                      </li>
+                    )}
 
                     <li>
                       <NavLink to="/customers" style={navStyle}>
@@ -166,10 +162,7 @@ function App() {
 
                     {role === "ADMIN" && (
                       <li>
-                        <NavLink
-                          to="/users"
-                          style={navStyle}
-                        >
+                        <NavLink to="/users" style={navStyle}>
                           👤 User Management
                         </NavLink>
                       </li>
@@ -177,10 +170,7 @@ function App() {
 
                     {role === "ADMIN" && (
                       <li>
-                        <NavLink
-                          to="/audit-logs"
-                          style={navStyle}
-                        >
+                        <NavLink to="/audit-logs" style={navStyle}>
                           📋 Audit Logs
                         </NavLink>
                       </li>
@@ -188,20 +178,14 @@ function App() {
 
                     {role === "ADMIN" && (
                       <li>
-                        <NavLink
-                          to="/settings"
-                          style={navStyle}
-                        >
+                        <NavLink to="/settings" style={navStyle}>
                           ⚙️ Settings
                         </NavLink>
                       </li>
                     )}
                   </ul>
 
-                  <button
-                    className="btn btn-danger"
-                    onClick={logout}
-                  >
+                  <button className="btn btn-danger" onClick={logout}>
                     Logout
                   </button>
                 </div>
@@ -213,111 +197,84 @@ function App() {
                     backgroundColor: "#f8fafc",
                   }}
                 >
-                  <div
-                    className="card shadow-sm border-0 mb-4"
-                  >
+                  <div className="card shadow-sm border-0 mb-4">
                     <div className="card-body">
-                      <h3 className="mb-0">
-                        Store Management System
-                      </h3>
+                      <h3 className="mb-0">Store Management System</h3>
 
                       <small className="text-muted">
-                        Welcome back,
-                        {" "}
-                        {localStorage.getItem("name")}
+                        Welcome back, {localStorage.getItem("name")}
                       </small>
                     </div>
                   </div>
                   <Routes>
-                    <Route
-                      path="/"
-                      element={<Dashboard />}
-                    />
+                    <Route path="/" element={<Dashboard />} />
 
-                    <Route
-                      path="/products"
-                      element={<Products />}
-                    />
+                    <Route path="/products" element={<Products />} />
 
                     <Route
                       path="/purchases"
                       element={
-                        role === "ADMIN"
-                          ? <Purchases />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? <Purchases /> : <Navigate to="/" />
                       }
                     />
 
-                    <Route
-                      path="/suppliers"
-                      element={<Suppliers />}
-                    />
+                    <Route path="/suppliers" element={<Suppliers />} />
+
+                    <Route path="/sales" element={<Sales />} />
 
                     <Route
-                      path="/sales"
-                      element={<Sales />}
+                      path="/cheques"
+                      element={
+                        role === "ADMIN" ? <Cheques /> : <Navigate to="/" />
+                      }
                     />
 
-                    <Route
-                      path="/customers"
-                      element={<Customers />}
-                    />
+                    <Route path="/customers" element={<Customers />} />
 
                     <Route
                       path="/expenses"
                       element={
-                        role === "ADMIN"
-                          ? <Expenses />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? <Expenses /> : <Navigate to="/" />
                       }
-                    />  
+                    />
 
                     <Route
                       path="/reports"
                       element={
-                        role === "ADMIN"
-                          ? <Reports />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? <Reports /> : <Navigate to="/" />
                       }
                     />
 
                     <Route
                       path="/audit-logs"
                       element={
-                        role === "ADMIN"
-                          ? <AuditLogs />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? <AuditLogs /> : <Navigate to="/" />
                       }
                     />
 
                     <Route
                       path="/users"
                       element={
-                        role === "ADMIN"
-                          ? <UserManagement />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? (
+                          <UserManagement />
+                        ) : (
+                          <Navigate to="/" />
+                        )
                       }
                     />
 
-                    <Route
-                      path="/invoice/:id"
-                      element={<Invoice />}
-                    />
+                    <Route path="/invoice/:id" element={<Invoice />} />
 
                     <Route
                       path="/settings"
                       element={
-                        role === "ADMIN"
-                          ? <Settings />
-                          : <Navigate to="/" />
+                        role === "ADMIN" ? <Settings /> : <Navigate to="/" />
                       }
                     />
 
                     <Route
                       path="/customers/:customerId"
-                      element={
-                        <CustomerLedger />
-                      }
+                      element={<CustomerLedger />}
                     />
 
                     <Route
@@ -330,11 +287,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-
       </Routes>
     </BrowserRouter>
   );
 }
 
 export default App;
-
