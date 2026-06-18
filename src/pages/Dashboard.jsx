@@ -75,6 +75,8 @@ function Dashboard() {
     topCategories: [],
   });
 
+  const [loading, setLoading] = useState(true);
+
   const [salesChart, setSalesChart] = useState({
     labels: [],
     values: [],
@@ -86,17 +88,15 @@ function Dashboard() {
 
   const fetchDashboard = async () => {
     try {
+      setLoading(true);
+
       const response = await api.get("/dashboard");
 
       setData(response.data);
-
-      setSalesChart({
-        labels: response.data.last7DaysSales.map((day) => day.label),
-
-        values: response.data.last7DaysSales.map((day) => day.sales),
-      });
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -111,6 +111,50 @@ function Dashboard() {
       },
     ],
   };
+
+  if (loading) {
+    return (
+      <div className="container-fluid">
+        <h2 className="mb-4">📊 Dashboard</h2>
+
+        <div className="row g-4">
+          {[...Array(9)].map((_, index) => (
+            <div key={index} className="col-md-4">
+              <div
+                className="card border-0 shadow-sm"
+                style={{
+                  height: "170px",
+                  borderRadius: "15px",
+                }}
+              >
+                <div className="card-body">
+                  <div className="placeholder-glow">
+                    <span
+                      className="placeholder col-6"
+                      style={{ height: "20px" }}
+                    ></span>
+
+                    <br />
+                    <br />
+
+                    <span
+                      className="placeholder col-8"
+                      style={{ height: "40px" }}
+                    ></span>
+
+                    <br />
+                    <br />
+
+                    <span className="placeholder col-4"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid">
@@ -179,26 +223,6 @@ function Dashboard() {
               <div className="text-muted">Total Products</div>
 
               <h2 className="fw-bold mt-3">{data.totalProducts}</h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-4">
-          <div
-            className="card border-0 shadow-sm h-100 bg-info text-white"
-            style={{
-              borderRadius: "15px",
-              minHeight: "180px",
-            }}
-          >
-            <div className="card-body text-center d-flex flex-column justify-content-center">
-              <div style={{ fontSize: "35px" }}>🏦</div>
-
-              <div>Pending Cheques</div>
-
-              <h4 className="fw-bold mt-3">
-                Rs. {data.pendingChequeAmount.toLocaleString()}
-              </h4>
             </div>
           </div>
         </div>
