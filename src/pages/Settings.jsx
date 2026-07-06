@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../services/api";
 
 function Settings() {
@@ -6,11 +6,18 @@ function Settings() {
   const [address, setAddress]     = useState("");
   const [phone, setPhone]         = useState("");
   const [vatNumber, setVatNumber] = useState("");
-  const [saved, setSaved]         = useState(false);
+  const [toast, setToast]         = useState(null); // { type: "success"|"error", message }
+  const [restoreTarget, setRestoreTarget] = useState(null); // parsed backup pending confirmation
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchSettings = async () => {
     try {
@@ -27,11 +34,10 @@ function Settings() {
   const saveSettings = async () => {
     try {
       await api.put("/settings", { storeName, address, phone, vatNumber });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      showToast("success", "Settings saved successfully!");
     } catch (error) {
       console.error(error);
-      alert(error?.response?.data?.message || error.message);
+      showToast("error", error?.response?.data?.message || error.message);
     }
   };
 
@@ -46,31 +52,81 @@ function Settings() {
       link.download  = `backup-${new Date().toISOString().split("T")[0]}.json`;
       link.click();
       window.URL.revokeObjectURL(url);
+      showToast("success", "Backup downloaded successfully!");
     } catch (error) {
       console.error(error);
-      alert("Failed to download backup");
+      showToast("error", "Failed to download backup");
     }
   };
 
-  const restoreBackup = async (event) => {
+  const handleFileSelect = async (event) => {
     try {
       const file = event.target.files[0];
       if (!file) return;
       const text   = await file.text();
       const backup = JSON.parse(text);
-      if (!window.confirm("This will overwrite all current data. Continue?")) return;
-      await api.post("/backup/restore", backup);
-      alert("Backup restored successfully");
+      setRestoreTarget(backup);
     } catch (error) {
       console.error(error);
-      alert(error?.response?.data?.message || "Failed to restore backup");
+      showToast("error", "Invalid backup file");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const confirmRestoreBackup = async () => {
+    if (!restoreTarget) return;
+    try {
+      await api.post("/backup/restore", restoreTarget);
+      showToast("success", "Backup restored successfully!");
+    } catch (error) {
+      console.error(error);
+      showToast("error", error?.response?.data?.message || "Failed to restore backup");
+    } finally {
+      setRestoreTarget(null);
     }
   };
 
   const fieldStyle = { marginBottom: "18px" };
 
+  const overlayStyle = {
+    position: "fixed", inset: 0,
+    background: "rgba(15,23,42,0.55)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 1000, padding: "20px",
+  };
+
+  const modalStyle = {
+    background: "#fff", borderRadius: "var(--rl)",
+    width: "100%", maxWidth: "420px",
+    display: "flex", flexDirection: "column",
+    border: "var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+  };
+
   return (
     <>
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 2000,
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 18px", borderRadius: "var(--r)",
+          background: toast.type === "success" ? "var(--green-b)" : "var(--red-b)",
+          border: `1px solid ${toast.type === "success" ? "var(--green-bd)" : "var(--red-bd)"}`,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          fontSize: 13, fontWeight: 600,
+          color: toast.type === "success" ? "var(--green)" : "var(--red)",
+          animation: "slideIn .2s ease",
+          maxWidth: 340,
+        }}>
+          <i className={`ti ${toast.type === "success" ? "ti-circle-check" : "ti-alert-circle"}`} style={{ fontSize: 18, flexShrink: 0 }} />
+          {toast.message}
+          <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 16, padding: 0, marginLeft: 4, opacity: 0.6 }}>
+            <i className="ti ti-x" />
+          </button>
+        </div>
+      )}
+
       {/* ── Page Header ── */}
       <div className="kb-page-header">
         <div>
@@ -169,16 +225,6 @@ function Settings() {
             <button className="kb-btn kb-btn-primary" onClick={saveSettings}>
               <i className="ti ti-device-floppy" /> Save Settings
             </button>
-            {saved && (
-              <span style={{
-                display: "flex", alignItems: "center", gap: "5px",
-                fontSize: "12.5px", color: "var(--green-m)", fontWeight: 600,
-                animation: "fadeIn .2s ease",
-              }}>
-                <i className="ti ti-circle-check" style={{ fontSize: "15px" }} />
-                Saved successfully!
-              </span>
-            )}
           </div>
         </div>
 
@@ -253,7 +299,7 @@ function Settings() {
             >
               <i className="ti ti-upload" style={{ fontSize: "15px" }} />
               Choose Backup File
-              <input type="file" accept=".json" hidden onChange={restoreBackup} />
+              <input ref={fileInputRef} type="file" accept=".json" hidden onChange={handleFileSelect} />
             </label>
           </div>
 
@@ -279,6 +325,66 @@ function Settings() {
         </div>
 
       </div>
+
+      {/* ══════════════════════════════════════
+          RESTORE CONFIRMATION MODAL
+      ══════════════════════════════════════ */}
+      {restoreTarget && (
+        <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) setRestoreTarget(null); }}>
+          <div style={modalStyle}>
+
+            {/* Header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "18px 22px", borderBottom: "var(--border)", flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                <span style={{
+                  width: "38px", height: "38px", borderRadius: "10px",
+                  background: "var(--red-b)", display: "flex", alignItems: "center",
+                  justifyContent: "center", color: "var(--red-m)", fontSize: "20px",
+                }}>
+                  <i className="ti ti-alert-triangle" />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--t1)" }}>Restore Backup</div>
+                  <div style={{ fontSize: "12px", color: "var(--t3)", marginTop: "1px" }}>This action cannot be undone</div>
+                </div>
+              </div>
+              <button onClick={() => setRestoreTarget(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--t3)", fontSize: "22px", lineHeight: 1, padding: "4px", borderRadius: "6px" }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px 22px" }}>
+              <p style={{ margin: 0, fontSize: "13.5px", color: "var(--t2)", lineHeight: 1.5 }}>
+                This will <strong style={{ color: "var(--t1)" }}>overwrite all current data</strong> with the contents of the selected backup file. Are you sure you want to continue?
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: "14px 22px", borderTop: "var(--border)",
+              display: "flex", justifyContent: "flex-end", gap: "10px", flexShrink: 0,
+              background: "var(--bg-surface)", borderRadius: "0 0 var(--rl) var(--rl)",
+            }}>
+              <button className="kb-btn kb-btn-outline" onClick={() => setRestoreTarget(null)}>
+                <i className="ti ti-x" /> Cancel
+              </button>
+              <button className="kb-btn kb-btn-danger" onClick={confirmRestoreBackup}>
+                <i className="ti ti-database-import" /> Restore Backup
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
     </>
   );
 }

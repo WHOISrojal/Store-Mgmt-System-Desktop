@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import Pagination from "../components/Pagination";
 
+const CATEGORIES = ["Shirt","T-Shirt","Pant","Jeans","Hoodie","Sweater","Track Pant","Innerwear","Accessories","Jacket","Kurta","Saree","Shoes"];
+const UNITS      = ["pcs","kg","g","ltr","ml","box"];
+
 function Purchases() {
   const [purchases,   setPurchases]   = useState([]);
-  const [products,    setProducts]    = useState([]);
   const [suppliers,   setSuppliers]   = useState([]);
   const [search,      setSearch]      = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -15,15 +17,21 @@ function Purchases() {
   const [toast,       setToast]       = useState(null); // { type: "success"|"error", message }
 
   const [supplier,      setSupplier]      = useState("");
-  const [product,       setProduct]       = useState("");
   const [quantity,      setQuantity]      = useState("");
   const [costPrice,     setCostPrice]     = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [modalOpen,     setModalOpen]     = useState(false);
 
+  // New product fields
+  const [newName,         setNewName]         = useState("");
+  const [newCategory,     setNewCategory]      = useState("");
+  const [newBarcode,      setNewBarcode]       = useState("");
+  const [newUnit,         setNewUnit]          = useState("pcs");
+  const [newSellingPrice, setNewSellingPrice]  = useState("");
+  const [newMinimumStock, setNewMinimumStock]  = useState("5");
+
   useEffect(() => {
     fetchStats();
-    fetchProducts();
     fetchSuppliers();
   }, []);
 
@@ -84,34 +92,38 @@ function Purchases() {
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const r = await api.get("/products/all");
-      setProducts(Array.isArray(r.data) ? r.data : []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const resetForm = () => {
-    setSupplier(""); setProduct(""); setQuantity(""); setCostPrice(""); setInvoiceNumber("");
+    setSupplier(""); setQuantity(""); setCostPrice(""); setInvoiceNumber("");
+    setNewName(""); setNewCategory(""); setNewBarcode("");
+    setNewUnit("pcs"); setNewSellingPrice(""); setNewMinimumStock("5");
   };
 
   const closeModal = () => { resetForm(); setModalOpen(false); };
 
   const addPurchase = async () => {
-    if (!supplier)      return showToast("error", "Please select a supplier.");
-    if (!product)       return showToast("error", "Please select a product.");
+    if (!supplier) return showToast("error", "Please select a supplier.");
+    if (!newName.trim()) return showToast("error", "Product name is required.");
+    if (!newSellingPrice) return showToast("error", "Selling price is required.");
     if (!quantity || Number(quantity) <= 0) return showToast("error", "Please enter a valid quantity.");
     if (!costPrice || Number(costPrice) <= 0) return showToast("error", "Please enter a valid cost price.");
 
     try {
-      await api.post("/purchases", {
-        supplier, product,
+      const payload = {
+        supplier,
         quantity: Number(quantity),
         costPrice: Number(costPrice),
         invoiceNumber,
-      });
+        newProduct: {
+          name: newName.trim(),
+          category: newCategory,
+          barcode: newBarcode,
+          unit: newUnit,
+          sellingPrice: Number(newSellingPrice),
+          minimumStock: Number(newMinimumStock) || 5,
+        },
+      };
+
+      await api.post("/purchases", payload);
       fetchPurchases(currentPage, search);
       fetchStats();
       closeModal();
@@ -136,7 +148,7 @@ function Purchases() {
 
   const modalStyle = {
     background: "#fff", borderRadius: "var(--rl)",
-    width: "100%", maxWidth: "560px",
+    width: "100%", maxWidth: "560px", maxHeight: "90vh",
     display: "flex", flexDirection: "column",
     border: "var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
   };
@@ -318,7 +330,7 @@ function Purchases() {
             </div>
 
             {/* Body */}
-            <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ overflowY: "auto", padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <label className="kb-label">Supplier</label>
                 <select className="kb-input" value={supplier} onChange={e => setSupplier(e.target.value)}>
@@ -326,16 +338,54 @@ function Purchases() {
                   {suppliers.map(item => <option key={item._id} value={item.name}>{item.name}</option>)}
                 </select>
               </div>
+
               <div>
-                <label className="kb-label">Product</label>
-                <select className="kb-input" value={product} onChange={e => setProduct(e.target.value)}>
-                  <option value="">Select product</option>
-                  {products.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}
-                </select>
+                <label className="kb-label" style={{ marginBottom: 6, display: "block" }}>Product</label>
+                <div style={{
+                  border: "1px dashed #cbd5e1", borderRadius: "var(--r)", padding: 14,
+                  background: "var(--bg-surface)", display: "flex", flexDirection: "column", gap: 12,
+                }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label className="kb-label">Product Name</label>
+                      <input className="kb-input" placeholder="e.g. Blue Polo Shirt" value={newName} onChange={e => setNewName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="kb-label">Category</label>
+                      <select className="kb-input" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
+                        <option value="">Select category</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="kb-label">Unit</label>
+                      <select className="kb-input" value={newUnit} onChange={e => setNewUnit(e.target.value)}>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="kb-label">Barcode <span style={{ color: "var(--t3)", fontWeight: 400 }}>(optional)</span></label>
+                      <input className="kb-input" placeholder="e.g. 8901234567890" value={newBarcode} onChange={e => setNewBarcode(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="kb-label">Selling Price (Rs.)</label>
+                      <input type="number" className="kb-input" placeholder="0" value={newSellingPrice} onChange={e => setNewSellingPrice(e.target.value)} />
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label className="kb-label">Minimum Stock Alert</label>
+                      <input type="number" className="kb-input" placeholder="5" value={newMinimumStock} onChange={e => setNewMinimumStock(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--t3)", lineHeight: 1.5, display: "flex", gap: 6, alignItems: "flex-start" }}>
+                    <i className="ti ti-info-circle" style={{ fontSize: 13, marginTop: 1, flexShrink: 0 }} />
+                    This product will be added to your inventory with the quantity and cost price entered below.
+                  </div>
+                </div>
               </div>
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div>
-                  <label className="kb-label">Quantity</label>
+                  <label className="kb-label">Quantity (Initial Stock)</label>
                   <input type="number" className="kb-input" placeholder="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
                 </div>
                 <div>

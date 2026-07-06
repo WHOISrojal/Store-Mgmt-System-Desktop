@@ -10,6 +10,7 @@ export default function CustomerLedger() {
   const [sales,        setSales]        = useState([]);
   const [amount,       setAmount]       = useState("");
   const [note,         setNote]         = useState("");
+  const [payMethod,    setPayMethod]    = useState("CASH");
   const [saving,       setSaving]       = useState(false);
   const [loading,      setLoading]      = useState(true);
   const [showPayModal, setShowPayModal] = useState(false);
@@ -34,12 +35,21 @@ export default function CustomerLedger() {
     try {
       setSaving(true);
       await api.post("/customer-transactions/payment", {
-        customerId, amount: Number(amount), note,
+        customerId, amount: Number(amount), note, paymentMethod: payMethod,
       });
-      setAmount(""); setNote(""); setShowPayModal(false);
+      setAmount(""); setNote(""); setPayMethod("CASH"); setShowPayModal(false);
       fetchData();
     } catch(e) { alert(e?.response?.data?.message || "Failed to record payment"); }
     finally { setSaving(false); }
+  };
+
+  // Go back to the previous page in this tab's history. If this tab has no
+  // previous entry (e.g. the ledger was opened directly or in a new tab),
+  // navigate(-1) has nothing to go back to and silently does nothing —
+  // fall back to the Customers list instead.
+  const goBack = () => {
+    if (window.history.length > 2) navigate(-1);
+    else navigate("/customers");
   };
 
   const customer      = transactions.length > 0 ? transactions[0].customer : null;
@@ -61,7 +71,7 @@ export default function CustomerLedger() {
 
       {/* ── Back + header ──────────────────────────────── */}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
-        <button onClick={() => navigate(-1)} className="kb-btn kb-btn-outline" style={{ padding:"6px 11px" }}>
+        <button onClick={goBack} className="kb-btn kb-btn-outline" style={{ padding:"6px 11px" }}>
           <i className="ti ti-arrow-left" />
         </button>
         <div>
@@ -196,10 +206,12 @@ export default function CustomerLedger() {
                     Rs. {sale.totalAmount?.toLocaleString()}
                   </td>
                   <td className="text-end">
-                    <a href={`/invoice/${sale._id}`} target="_blank" rel="noreferrer"
+                    {/* Opens in the SAME tab (in-app navigation) so the invoice's
+                        own Back button has a real history entry to return to. */}
+                    <Link to={`/invoice/${sale._id}`}
                       className="kb-btn kb-btn-outline" style={{ padding:"4px 10px", fontSize:12 }}>
-                      <i className="ti ti-external-link" /> View
-                    </a>
+                      <i className="ti ti-file-invoice" /> View
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -269,6 +281,14 @@ export default function CustomerLedger() {
                         <i className={`ti ${tx.type === "PURCHASE" ? "ti-receipt" : "ti-cash"}`} style={{ fontSize:10 }} />
                         {tx.type}
                       </span>
+                      {tx.type === "PAYMENT" && tx.paymentMethod && (
+                        <span style={{
+                          marginLeft:6, fontSize:10.5, fontWeight:700,
+                          color:"var(--t3)", textTransform:"capitalize",
+                        }}>
+                          via {tx.paymentMethod.toLowerCase()}
+                        </span>
+                      )}
                     </td>
                     <td className="text-end">
                       <span style={{ fontWeight:700, fontSize:13.5, color: tx.type === "PURCHASE" ? "var(--red-m)" : "var(--green-m)" }}>
@@ -319,7 +339,7 @@ export default function CustomerLedger() {
                 <div style={{ fontWeight:700, fontSize:14, color:"#0f172a" }}>Receive Payment</div>
                 <div style={{ fontSize:12, color:"var(--t3)" }}>From {customer?.name}</div>
               </div>
-              <button onClick={() => { setShowPayModal(false); setAmount(""); setNote(""); }}
+              <button onClick={() => { setShowPayModal(false); setAmount(""); setNote(""); setPayMethod("CASH"); }}
                 style={{ border:"none", background:"none", cursor:"pointer", fontSize:22, color:"#94a3b8", lineHeight:1, padding:0 }}>
                 ×
               </button>
@@ -375,6 +395,30 @@ export default function CustomerLedger() {
                 )}
               </div>
 
+              {/* Payment method */}
+              <div className="kb-form-group">
+                <label className="kb-label">Received via</label>
+                <div style={{ display:"flex", gap:8 }}>
+                  {["CASH", "ONLINE"].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPayMethod(m)}
+                      style={{
+                        flex:1, padding:"8px 0", fontSize:12.5, fontWeight:700,
+                        borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+                        border: payMethod === m ? "1.5px solid var(--green-m)" : "1px solid #e2e8f0",
+                        background: payMethod === m ? "var(--green-b)" : "#fff",
+                        color: payMethod === m ? "var(--green-m)" : "var(--t2)",
+                      }}
+                    >
+                      <i className={`ti ${m === "CASH" ? "ti-cash" : "ti-credit-card"}`} style={{ marginRight:5 }} />
+                      {m === "CASH" ? "Cash" : "Online"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Note */}
               <div className="kb-form-group">
                 <label className="kb-label">Note (optional)</label>
@@ -410,7 +454,7 @@ export default function CustomerLedger() {
               {/* Actions */}
               <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
                 <button className="kb-btn kb-btn-outline"
-                  onClick={() => { setShowPayModal(false); setAmount(""); setNote(""); }}>
+                  onClick={() => { setShowPayModal(false); setAmount(""); setNote(""); setPayMethod("CASH"); }}>
                   Cancel
                 </button>
                 <button className="kb-btn kb-btn-success" onClick={recordPayment} disabled={saving}>

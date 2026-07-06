@@ -11,10 +11,17 @@ function UserManagement() {
   const [resetModalUser, setResetModalUser] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [toast, setToast] = useState(null); // { type: "success"|"error", message }
+  const [deleteTarget, setDeleteTarget] = useState(null); // user pending delete confirmation
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchUsers = async () => {
     try {
@@ -40,35 +47,41 @@ function UserManagement() {
       await api.post("/auth/register", { name, username, password, role });
       fetchUsers();
       closeModal();
-      alert("User Created");
+      showToast("success", "User created successfully!");
     } catch (error) {
       console.error(error);
-      alert(error?.response?.data?.message || "Failed to create user");
+      showToast("error", error?.response?.data?.message || "Failed to create user");
     }
   };
 
-  const deleteUser = async (id) => {
-    if (!window.confirm("Delete this user?")) return;
+  const requestDeleteUser = (user) => {
+    setDeleteTarget(user);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/users/${id}`);
+      await api.delete(`/users/${deleteTarget._id}`);
+      showToast("success", "User deleted successfully!");
       fetchUsers();
-      alert("User Deleted");
     } catch (error) {
       console.error(error);
-      alert("Failed to delete user");
+      showToast("error", error?.response?.data?.message || "Failed to delete user.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
   const resetPassword = async () => {
-    if (!newPassword) return alert("Enter a new password");
+    if (!newPassword) return showToast("error", "Enter a new password");
     try {
       await api.put(`/users/${resetModalUser._id}/password`, { password: newPassword });
-      alert("Password Reset Successfully");
+      showToast("success", "Password reset successfully!");
       setResetModalUser(null);
       setNewPassword("");
     } catch (error) {
       console.error(error);
-      alert("Failed to Reset Password");
+      showToast("error", error?.response?.data?.message || "Failed to reset password.");
     }
   };
 
@@ -91,6 +104,28 @@ function UserManagement() {
 
   return (
     <>
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 2000,
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 18px", borderRadius: "var(--r)",
+          background: toast.type === "success" ? "var(--green-b)" : "var(--red-b)",
+          border: `1px solid ${toast.type === "success" ? "var(--green-bd)" : "var(--red-bd)"}`,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          fontSize: 13, fontWeight: 600,
+          color: toast.type === "success" ? "var(--green)" : "var(--red)",
+          animation: "slideIn .2s ease",
+          maxWidth: 340,
+        }}>
+          <i className={`ti ${toast.type === "success" ? "ti-circle-check" : "ti-alert-circle"}`} style={{ fontSize: 18, flexShrink: 0 }} />
+          {toast.message}
+          <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 16, padding: 0, marginLeft: 4, opacity: 0.6 }}>
+            <i className="ti ti-x" />
+          </button>
+        </div>
+      )}
+
       {/* ── Page Header ── */}
       <div className="kb-page-header">
         <div>
@@ -214,7 +249,7 @@ function UserManagement() {
                           <button
                             className="kb-btn kb-btn-danger"
                             style={{ padding: "5px 10px", fontSize: "11.5px" }}
-                            onClick={() => deleteUser(user._id)}
+                            onClick={() => requestDeleteUser(user)}
                           >
                             <i className="ti ti-trash" /> Delete
                           </button>
@@ -431,6 +466,67 @@ function UserManagement() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════
+          DELETE CONFIRMATION MODAL
+      ══════════════════════════════════════ */}
+      {deleteTarget && (
+        <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={{ ...modalStyle, maxWidth: "420px" }}>
+
+            {/* Header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "18px 22px", borderBottom: "var(--border)", flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
+                <span style={{
+                  width: "38px", height: "38px", borderRadius: "10px",
+                  background: "var(--red-b)", display: "flex", alignItems: "center",
+                  justifyContent: "center", color: "var(--red-m)", fontSize: "20px",
+                }}>
+                  <i className="ti ti-alert-triangle" />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--t1)" }}>Delete User</div>
+                  <div style={{ fontSize: "12px", color: "var(--t3)", marginTop: "1px" }}>This action cannot be undone</div>
+                </div>
+              </div>
+              <button onClick={() => setDeleteTarget(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--t3)", fontSize: "22px", lineHeight: 1, padding: "4px", borderRadius: "6px" }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px 22px" }}>
+              <p style={{ margin: 0, fontSize: "13.5px", color: "var(--t2)", lineHeight: 1.5 }}>
+                Are you sure you want to delete <strong style={{ color: "var(--t1)" }}>"{deleteTarget.name}"</strong>?
+                This staff account will be permanently removed and cannot be recovered.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: "14px 22px", borderTop: "var(--border)",
+              display: "flex", justifyContent: "flex-end", gap: "10px", flexShrink: 0,
+              background: "var(--bg-surface)", borderRadius: "0 0 var(--rl) var(--rl)",
+            }}>
+              <button className="kb-btn kb-btn-outline" onClick={() => setDeleteTarget(null)}>
+                <i className="ti ti-x" /> Cancel
+              </button>
+              <button className="kb-btn kb-btn-danger" onClick={confirmDeleteUser}>
+                <i className="ti ti-trash" /> Delete User
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
     </>
   );
 }

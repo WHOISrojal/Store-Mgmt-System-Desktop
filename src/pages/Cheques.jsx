@@ -12,6 +12,7 @@ function Cheques() {
   const [totalCount,  setTotalCount]  = useState(0);
   const [loading,     setLoading]     = useState(false);
   const [stats,       setStats]       = useState({ pending: 0, cleared: 0, bounced: 0, overdue: 0, totalPendingValue: 0 });
+  const [toast,       setToast]       = useState(null);
 
   useEffect(() => { fetchStats(); }, []);
 
@@ -27,6 +28,11 @@ function Cheques() {
     }, 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchStats = async () => {
     try {
@@ -68,8 +74,10 @@ function Cheques() {
       await api.put(`/sales/${id}/cheque-status`, { status });
       fetchCheques(currentPage, filter, search);
       fetchStats();
+      showToast("success", `Cheque marked as ${status.toLowerCase()}.`);
     } catch (error) {
-      alert("Failed");
+      console.error(error);
+      showToast("error", error?.response?.data?.message || "Failed to update cheque status.");
     }
   };
 
@@ -103,6 +111,28 @@ function Cheques() {
 
   return (
     <>
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 2000,
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 18px", borderRadius: "var(--r)",
+          background: toast.type === "success" ? "var(--green-b)" : "var(--red-b)",
+          border: `1px solid ${toast.type === "success" ? "var(--green-bd)" : "var(--red-bd)"}`,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          fontSize: 13, fontWeight: 600,
+          color: toast.type === "success" ? "var(--green)" : "var(--red)",
+          animation: "slideIn .2s ease",
+          maxWidth: 340,
+        }}>
+          <i className={`ti ${toast.type === "success" ? "ti-circle-check" : "ti-alert-circle"}`} style={{ fontSize: 18, flexShrink: 0 }} />
+          {toast.message}
+          <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 16, padding: 0, marginLeft: 4, opacity: 0.6 }}>
+            <i className="ti ti-x" />
+          </button>
+        </div>
+      )}
+
       {/* ── Page Header ── */}
       <div className="kb-page-header">
         <div>
@@ -336,7 +366,10 @@ function Cheques() {
         )}
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
     </>
   );
 }

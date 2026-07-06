@@ -110,6 +110,21 @@ export default function Invoice() {
     ? { bg:"#fef2f2", color:"#991b1b", border:"#fca5a5" }
     : { bg:"#fffbeb", color:"#92400e", border:"#fcd34d" };
 
+  // Discount display (falls back gracefully for older sales without the field)
+  const subtotal       = sale.subtotal ?? sale.totalAmount;
+  const discountAmount = sale.discountAmount || 0;
+  const hasDiscount     = discountAmount > 0;
+  const discountLabel   = sale.discountType === "PERCENT" && sale.discountValue
+    ? `Discount (${sale.discountValue}%)`
+    : "Discount";
+
+  // Advance paid / balance due (CREDIT sales only — CASH is settled in full,
+  // CHEQUE due tracking is handled via chequeStatus instead)
+  const amountPaid  = sale.amountPaid || 0;
+  const advMethod   = sale.advancePaymentMethod; // "CASH" | "ONLINE" | null
+  const hasAdvance  = sale.paymentType === "CREDIT" && amountPaid > 0;
+  const balanceDue  = Math.max(0, Math.round((sale.totalAmount - amountPaid) * 100) / 100);
+
   return (
     <div>
       {/* ── Top action bar (not printed) ─────────────── */}
@@ -117,7 +132,15 @@ export default function Invoice() {
         display:"flex", alignItems:"center", justifyContent:"space-between",
         marginBottom:20,
       }}>
-        <button onClick={() => navigate(-1)} className="kb-btn kb-btn-outline" style={{ padding:"6px 11px" }}>
+        <button
+          onClick={() => {
+            // If this tab has no previous page in its history (e.g. the invoice
+            // was opened in a brand-new tab), navigate(-1) has nothing to go back
+            // to and silently does nothing. Fall back to the Sales list instead.
+            if (window.history.length > 2) navigate(-1);
+            else navigate("/sales");
+          }}
+          className="kb-btn kb-btn-outline" style={{ padding:"6px 11px" }}>
           <i className="ti ti-arrow-left" /> Back
         </button>
         <div style={{ display:"flex", gap:8 }}>
@@ -321,12 +344,39 @@ export default function Invoice() {
             <div style={{ minWidth:260 }}>
               <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", fontSize:13, color:"#475569", borderBottom:"1px solid #f1f5f9" }}>
                 <span>Subtotal</span>
-                <span style={{ fontWeight:600 }}>Rs. {sale.totalAmount?.toLocaleString()}</span>
+                <span style={{ fontWeight:600 }}>Rs. {subtotal?.toLocaleString()}</span>
               </div>
               <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", fontSize:13, color:"#475569", borderBottom:"1px solid #f1f5f9" }}>
-                <span>Discount</span>
-                <span style={{ fontWeight:600, color:"#059669" }}>Rs. 0</span>
+                <span>{discountLabel}</span>
+                <span style={{ fontWeight:600, color: hasDiscount ? "#059669" : "#94a3b8" }}>
+                  {hasDiscount ? `− Rs. ${discountAmount.toLocaleString()}` : "Rs. 0"}
+                </span>
               </div>
+              {hasAdvance && (
+                <>
+                  <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", fontSize:13, color:"#475569", borderBottom:"1px solid #f1f5f9" }}>
+                    <span>
+                      Paid (advance)
+                      {advMethod && (
+                        <span style={{
+                          marginLeft:6, fontSize:10.5, fontWeight:700,
+                          color: advMethod === "ONLINE" ? "#1e3a8a" : "#065f46",
+                          background: advMethod === "ONLINE" ? "#eff6ff" : "#ecfdf5",
+                          border: `1px solid ${advMethod === "ONLINE" ? "#bfdbfe" : "#a7f3d0"}`,
+                          borderRadius:20, padding:"1px 8px", textTransform:"uppercase", letterSpacing:".04em",
+                        }}>
+                          {advMethod === "ONLINE" ? "Online" : "Cash"}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontWeight:600, color:"#059669" }}>− Rs. {amountPaid.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", fontSize:13, color:"#475569", borderBottom:"1px solid #f1f5f9" }}>
+                    <span>Balance due</span>
+                    <span style={{ fontWeight:700, color:"#dc2626" }}>Rs. {balanceDue.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
               <div style={{
                 display:"flex", justifyContent:"space-between",
                 padding:"12px 16px", marginTop:8,
@@ -401,7 +451,6 @@ export default function Invoice() {
 
       </div>
 
-      {/* ── Print styles ─────────────────────────────── */}
       {/* ══ RETURN MODAL ══════════════════════════════ */}
       {returnModal && returnProduct && (
         <div style={{

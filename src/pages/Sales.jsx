@@ -134,12 +134,17 @@ export default function Sales() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustDrop,   setShowCustDrop]   = useState(false);
   const [paidAmount,     setPaidAmount]     = useState("");
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState("CASH"); // CASH | ONLINE
   const [product,        setProduct]        = useState("");
   const [barcode,        setBarcode]        = useState("");
   const [quantity,       setQuantity]       = useState("");
   const [cart,           setCart]           = useState([]);
   const [showForm,       setShowForm]       = useState(false);
   const [saleError,      setSaleError]      = useState(""); // inline error inside new sale modal
+
+  // discount
+  const [discountType,  setDiscountType]  = useState("FLAT"); // FLAT | PERCENT
+  const [discountValue, setDiscountValue] = useState("");
 
   // filters
   const [search,   setSearch]   = useState("");
@@ -149,6 +154,8 @@ export default function Sales() {
   // edit
   const [editingSale, setEditingSale] = useState(null);
   const [editItems,   setEditItems]   = useState([]);
+  const [editDiscountType,  setEditDiscountType]  = useState("FLAT");
+  const [editDiscountValue, setEditDiscountValue] = useState("");
   const [editError,   setEditError]   = useState(""); // inline error inside edit modal
 
   useEffect(() => {
@@ -194,6 +201,17 @@ export default function Sales() {
     return sum + (p?.sellingPrice || 0) * item.quantity;
   }, 0);
 
+  // discount amount resolved in Rs, clamped to [0, cartTotal]
+  const discountAmount = (() => {
+    const val = Number(discountValue) || 0;
+    if (val <= 0) return 0;
+    let amt = discountType === "PERCENT" ? (cartTotal * val) / 100 : val;
+    if (amt > cartTotal) amt = cartTotal;
+    return Math.round(amt * 100) / 100;
+  })();
+
+  const grandTotal = Math.max(0, Math.round((cartTotal - discountAmount) * 100) / 100);
+
   const findByBarcode = () => {
     const found = products.find(p => p.barcode === barcode);
     if (!found) { setSaleError("Product not found for this barcode."); return; }
@@ -236,24 +254,30 @@ export default function Sales() {
     if (cart.length === 0)                                              return setSaleError("Cart is empty. Add at least one product.");
     if (paymentType === "CREDIT" && !customer)                         return setSaleError("Please select a customer for credit sale.");
     if (paymentType === "CHEQUE" && (!chequeNumber || !bankName || !chequeDate)) return setSaleError("Please fill in all cheque details.");
+    if (discountType === "PERCENT" && Number(discountValue) > 100)      return setSaleError("Percent discount cannot exceed 100%.");
+    if (Number(discountValue) < 0)                                      return setSaleError("Discount cannot be negative.");
     const paid = Number(paidAmount) || 0;
-    if (paid > cartTotal)                                              return setSaleError("Paid amount cannot exceed the total.");
+    if (paid > grandTotal)                                             return setSaleError("Paid amount cannot exceed the total.");
     setSaleError("");
     try {
       const r = await api.post("/sales", {
         customer, paymentType, chequeNumber, bankName, chequeDate,
         items: cart.map(i => ({ product: i.product, quantity: i.quantity })),
+        discountType, discountValue: Number(discountValue) || 0,
+        paidAmount: paymentType === "CREDIT" ? paid : 0,
+        advancePaymentMethod: paymentType === "CREDIT" && paid > 0 ? advancePaymentMethod : null,
       });
       if (paymentType === "CREDIT" && customer && paid > 0) {
         await api.post("/customer-transactions/payment", {
           customerId: customer, amount: paid,
-          note: `Advance Payment #${r.data._id}`,
+          note: `Advance Payment (${advancePaymentMethod === "ONLINE" ? "Online" : "Cash"}) #${r.data._id}`,
         });
       }
       fetchSales();
       setCustomer(""); setCustomerSearch(""); setShowCustDrop(false);
-      setPaymentType("CASH"); setPaidAmount(""); setCart([]);
+      setPaymentType("CASH"); setPaidAmount(""); setAdvancePaymentMethod("CASH"); setCart([]);
       setChequeNumber(""); setBankName(""); setChequeDate("");
+      setDiscountType("FLAT"); setDiscountValue("");
       setShowForm(false);
       showToast("success", "Sale created successfully!");
     } catch (e) {
@@ -262,13 +286,33 @@ export default function Sales() {
   };
 
   /* ── Edit / delete ───────────────────────────────────── */
+  const editCartTotal = editItems.reduce((sum, item) => {
+    const p = products.find(p => p._id === item.product);
+    return sum + (p?.sellingPrice || 0) * item.quantity;
+  }, 0);
+
+  const editDiscountAmount = (() => {
+    const val = Number(editDiscountValue) || 0;
+    if (val <= 0) return 0;
+    let amt = editDiscountType === "PERCENT" ? (editCartTotal * val) / 100 : val;
+    if (amt > editCartTotal) amt = editCartTotal;
+    return Math.round(amt * 100) / 100;
+  })();
+
+  const editGrandTotal = Math.max(0, Math.round((editCartTotal - editDiscountAmount) * 100) / 100);
+
   const saveSaleChanges = async () => {
     setEditError("");
+    if (editDiscountType === "PERCENT" && Number(editDiscountValue) > 100) return setEditError("Percent discount cannot exceed 100%.");
+    if (Number(editDiscountValue) < 0) return setEditError("Discount cannot be negative.");
     try {
       await api.put(`/sales/${editingSale._id}`, {
         items: editItems.filter(i => i.quantity > 0),
+        discountType: editDiscountType,
+        discountValue: Number(editDiscountValue) || 0,
       });
       setEditingSale(null); setEditItems([]);
+      setEditDiscountType("FLAT"); setEditDiscountValue("");
       fetchSales(); fetchProducts();
       showToast("success", "Sale updated successfully!");
     } catch (e) {
@@ -404,8 +448,8 @@ export default function Sales() {
               <th>Cheque no.</th>
               <th>Status</th>
               <th className="text-end">Items</th>
+              <th className="text-end">Discount</th>
               <th className="text-end">Amount</th>
-              {role === "ADMIN" && <th className="text-end">Profit</th>}
               <th className="text-end">Actions</th>
             </tr>
           </thead>
@@ -461,13 +505,13 @@ export default function Sales() {
                   <span className="kb-badge blue">{sale.items?.length || 0}</span>
                 </td>
                 <td className="text-end">
+                  {sale.discountAmount > 0
+                    ? <span className="kb-badge green">− Rs. {sale.discountAmount.toLocaleString()}</span>
+                    : <span style={{ color: "var(--t3)", fontSize: 12 }}>—</span>}
+                </td>
+                <td className="text-end">
                   <strong style={{ color: "var(--t1)" }}>Rs. {sale.totalAmount?.toLocaleString()}</strong>
                 </td>
-                {role === "ADMIN" && (
-                  <td className="text-end" style={{ color: "var(--green-m)", fontWeight: 600 }}>
-                    Rs. {sale.profit?.toLocaleString()}
-                  </td>
-                )}
                 <td className="text-end">
                   <div style={{ display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
                     <Link to={`/invoice/${sale._id}`} className="kb-btn kb-btn-outline" style={{ padding: "4px 9px", fontSize: 11.5 }}>
@@ -476,7 +520,13 @@ export default function Sales() {
                     {role === "ADMIN" && (
                       <>
                         <button className="kb-btn kb-btn-outline" style={{ padding: "4px 10px", fontSize: 11.5 }}
-                          onClick={() => { setEditingSale(sale); setEditError(""); setEditItems(sale.items.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity }))); }}>
+                          onClick={() => {
+                            setEditingSale(sale);
+                            setEditError("");
+                            setEditItems(sale.items.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity })));
+                            setEditDiscountType(sale.discountType || "FLAT");
+                            setEditDiscountValue(sale.discountValue ? String(sale.discountValue) : "");
+                          }}>
                           <i className="ti ti-edit" /> Edit
                         </button>
                         <button className="kb-btn kb-btn-danger" style={{ padding: "4px 10px", fontSize: 11.5 }}
@@ -511,7 +561,7 @@ export default function Sales() {
 
       {/* ══ NEW SALE MODAL ══════════════════════════════ */}
       {showForm && (
-        <Modal title="Create New Sale" onClose={() => { setShowForm(false); setCart([]); setSaleError(""); }} width={780}>
+        <Modal title="Create New Sale" onClose={() => { setShowForm(false); setCart([]); setSaleError(""); setDiscountType("FLAT"); setDiscountValue(""); setAdvancePaymentMethod("CASH"); }} width={780}>
           {/* Inline error */}
           <InlineError message={saleError} onClose={() => setSaleError("")} />
 
@@ -588,8 +638,26 @@ export default function Sales() {
               {paymentType === "CREDIT" && (
                 <div className="kb-form-group">
                   <label className="kb-label">Paid now (advance)</label>
-                  <input type="number" className="kb-input" placeholder="0"
-                    value={paidAmount} onChange={e => setPaidAmount(e.target.value)} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input type="number" className="kb-input" style={{ flex: 1 }} placeholder="0"
+                      value={paidAmount} onChange={e => setPaidAmount(e.target.value)} />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {["CASH", "ONLINE"].map(m => (
+                        <button key={m} type="button" onClick={() => setAdvancePaymentMethod(m)}
+                          style={{
+                            padding: "8px 12px", borderRadius: "var(--r)",
+                            border: advancePaymentMethod === m ? "2px solid var(--brand)" : "1px solid #e2e8f0",
+                            background: advancePaymentMethod === m ? "var(--blue-b)" : "#fff",
+                            color: advancePaymentMethod === m ? "var(--brand)" : "var(--t2)",
+                            fontWeight: advancePaymentMethod === m ? 700 : 500,
+                            fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                          }}>
+                          <i className={`ti ${m === "CASH" ? "ti-cash" : "ti-credit-card"}`} style={{ marginRight: 4 }} />
+                          {m === "CASH" ? "Cash" : "Online"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -612,6 +680,39 @@ export default function Sales() {
                   </div>
                 </div>
               )}
+
+              {/* Discount */}
+              <div style={{ background: "var(--green-b, #ecfdf5)", border: "1px solid var(--green-bd, #a7f3d0)", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 14 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--green, #059669)", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".05em" }}>
+                  <i className="ti ti-discount-2" style={{ marginRight: 4 }} /> Discount
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {["FLAT", "PERCENT"].map(t => (
+                      <button key={t} onClick={() => setDiscountType(t)}
+                        style={{
+                          padding: "8px 12px", borderRadius: "var(--r)",
+                          border: discountType === t ? "2px solid var(--brand)" : "1px solid #e2e8f0",
+                          background: discountType === t ? "var(--blue-b)" : "#fff",
+                          color: discountType === t ? "var(--brand)" : "var(--t2)",
+                          fontWeight: discountType === t ? 700 : 500,
+                          fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                        }}>
+                        {t === "FLAT" ? "Rs." : "%"}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="number" min="0" className="kb-input" style={{ flex: 1 }}
+                    placeholder={discountType === "PERCENT" ? "e.g. 10 (%)" : "e.g. 100 (Rs.)"}
+                    value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
+                </div>
+                {discountAmount > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--green-m, #059669)" }}>
+                    <i className="ti ti-circle-check" style={{ marginRight: 4 }} />
+                    Discount applied: Rs. {discountAmount.toLocaleString()}
+                  </div>
+                )}
+              </div>
 
               <div className="kb-form-group">
                 <label className="kb-label">Add by barcode</label>
@@ -725,15 +826,21 @@ export default function Sales() {
                       <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
                       <span>Rs. {cartTotal.toLocaleString()}</span>
                     </div>
+                    {discountAmount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--green-m, #059669)", marginBottom: 4 }}>
+                        <span>Discount {discountType === "PERCENT" ? `(${discountValue}%)` : ""}</span>
+                        <span>− Rs. {discountAmount.toLocaleString()}</span>
+                      </div>
+                    )}
                     {paymentType === "CREDIT" && paidAmount && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--green-m)", marginBottom: 4 }}>
-                        <span>Paid now</span>
+                        <span>Paid now ({advancePaymentMethod === "ONLINE" ? "Online" : "Cash"})</span>
                         <span>− Rs. {Number(paidAmount).toLocaleString()}</span>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, color: "var(--t1)", borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
                       <span>Grand total</span>
-                      <span style={{ color: "var(--blue-m)" }}>Rs. {cartTotal.toLocaleString()}</span>
+                      <span style={{ color: "var(--blue-m)" }}>Rs. {grandTotal.toLocaleString()}</span>
                     </div>
                   </div>
                 </>
@@ -751,7 +858,7 @@ export default function Sales() {
 
       {/* ══ EDIT SALE MODAL ════════════════════════════ */}
       {editingSale && (
-        <Modal title={`Edit Sale — INV-${editingSale._id.slice(-6).toUpperCase()}`} onClose={() => { setEditingSale(null); setEditItems([]); setEditError(""); }}>
+        <Modal title={`Edit Sale — INV-${editingSale._id.slice(-6).toUpperCase()}`} onClose={() => { setEditingSale(null); setEditItems([]); setEditError(""); setEditDiscountType("FLAT"); setEditDiscountValue(""); }}>
           <InlineError message={editError} onClose={() => setEditError("")} />
           <div style={{ marginBottom: 14 }}>
             {editItems.map((item, idx) => (
@@ -781,8 +888,54 @@ export default function Sales() {
               {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
             </select>
           </div>
+
+          {/* Discount */}
+          <div style={{ background: "var(--green-b, #ecfdf5)", border: "1px solid var(--green-bd, #a7f3d0)", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 14 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--green, #059669)", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".05em" }}>
+              <i className="ti ti-discount-2" style={{ marginRight: 4 }} /> Discount
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 4 }}>
+                {["FLAT", "PERCENT"].map(t => (
+                  <button key={t} onClick={() => setEditDiscountType(t)}
+                    style={{
+                      padding: "8px 12px", borderRadius: "var(--r)",
+                      border: editDiscountType === t ? "2px solid var(--brand)" : "1px solid #e2e8f0",
+                      background: editDiscountType === t ? "var(--blue-b)" : "#fff",
+                      color: editDiscountType === t ? "var(--brand)" : "var(--t2)",
+                      fontWeight: editDiscountType === t ? 700 : 500,
+                      fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                    }}>
+                    {t === "FLAT" ? "Rs." : "%"}
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="0" className="kb-input" style={{ flex: 1 }}
+                placeholder={editDiscountType === "PERCENT" ? "e.g. 10 (%)" : "e.g. 100 (Rs.)"}
+                value={editDiscountValue} onChange={e => setEditDiscountValue(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Live totals */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--t2)", marginBottom: 4 }}>
+              <span>Subtotal</span>
+              <span>Rs. {editCartTotal.toLocaleString()}</span>
+            </div>
+            {editDiscountAmount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--green-m, #059669)", marginBottom: 4 }}>
+                <span>Discount</span>
+                <span>− Rs. {editDiscountAmount.toLocaleString()}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800, color: "var(--t1)", borderTop: "1px solid #e2e8f0", paddingTop: 8, marginTop: 4 }}>
+              <span>Grand total</span>
+              <span style={{ color: "var(--blue-m)" }}>Rs. {editGrandTotal.toLocaleString()}</span>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-            <button className="kb-btn kb-btn-outline" onClick={() => { setEditingSale(null); setEditItems([]); setEditError(""); }}>Cancel</button>
+            <button className="kb-btn kb-btn-outline" onClick={() => { setEditingSale(null); setEditItems([]); setEditError(""); setEditDiscountType("FLAT"); setEditDiscountValue(""); }}>Cancel</button>
             <button className="kb-btn kb-btn-primary" onClick={saveSaleChanges}>Save changes</button>
           </div>
         </Modal>

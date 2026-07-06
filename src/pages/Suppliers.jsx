@@ -11,6 +11,7 @@ function Suppliers() {
   const [totalCount,  setTotalCount]  = useState(0);
   const [loading,     setLoading]     = useState(false);
   const [toast,       setToast]       = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // supplier pending delete confirmation
 
   const [name,      setName]      = useState("");
   const [phone,     setPhone]     = useState("");
@@ -76,15 +77,21 @@ function Suppliers() {
     }
   };
 
-  const deleteSupplier = async (id) => {
-    if (!window.confirm("Delete this supplier?")) return;
+  const requestDeleteSupplier = (supplier) => {
+    setDeleteTarget(supplier);
+  };
+
+  const confirmDeleteSupplier = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/suppliers/${id}`);
+      await api.delete(`/suppliers/${deleteTarget._id}`);
       fetchSuppliers(currentPage, search);
       showToast("success", "Supplier deleted successfully.");
     } catch (error) {
       console.error(error);
       showToast("error", "Failed to delete supplier.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -252,7 +259,7 @@ function Suppliers() {
                           <i className="ti ti-book" /> Ledger
                         </Link>
                         {role === "ADMIN" && (
-                          <button className="kb-btn kb-btn-danger" style={{ padding: "5px 10px", fontSize: 11.5 }} onClick={() => deleteSupplier(supplier._id)}>
+                          <button className="kb-btn kb-btn-danger" style={{ padding: "5px 10px", fontSize: 11.5 }} onClick={() => requestDeleteSupplier(supplier)}>
                             <i className="ti ti-trash" /> Delete
                           </button>
                         )}
@@ -322,6 +329,45 @@ function Suppliers() {
             <div style={{ padding: "14px 22px", borderTop: "var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, flexShrink: 0, background: "var(--bg-surface)", borderRadius: "0 0 var(--rl) var(--rl)" }}>
               <button className="kb-btn kb-btn-outline" onClick={closeModal}><i className="ti ti-x" /> Cancel</button>
               <button className="kb-btn kb-btn-primary" onClick={addSupplier}><i className="ti ti-circle-plus" /> Add Supplier</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+          DELETE CONFIRMATION MODAL
+      ══════════════════════════════════════ */}
+      {deleteTarget && (
+        <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={{ ...modalStyle, maxWidth: "420px" }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "var(--border)", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                <span style={{ width: 38, height: 38, borderRadius: 10, background: "var(--red-b)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red-m)", fontSize: 20 }}>
+                  <i className="ti ti-alert-triangle" />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--t1)" }}>Delete Supplier</div>
+                  <div style={{ fontSize: 12, color: "var(--t3)", marginTop: 1 }}>This action cannot be undone</div>
+                </div>
+              </div>
+              <button onClick={() => setDeleteTarget(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--t3)", fontSize: 22, lineHeight: 1, padding: 4, borderRadius: 6 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px 22px" }}>
+              <p style={{ margin: 0, fontSize: 13.5, color: "var(--t2)", lineHeight: 1.5 }}>
+                Are you sure you want to delete <strong style={{ color: "var(--t1)" }}>"{deleteTarget.name}"</strong>? This cannot be undone.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "14px 22px", borderTop: "var(--border)", display: "flex", justifyContent: "flex-end", gap: 10, flexShrink: 0, background: "var(--bg-surface)", borderRadius: "0 0 var(--rl) var(--rl)" }}>
+              <button className="kb-btn kb-btn-outline" onClick={() => setDeleteTarget(null)}><i className="ti ti-x" /> Cancel</button>
+              <button className="kb-btn kb-btn-danger" onClick={confirmDeleteSupplier}><i className="ti ti-trash" /> Delete Supplier</button>
             </div>
           </div>
         </div>

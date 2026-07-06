@@ -20,6 +20,7 @@ function Products() {
   const [stockHistory,   setStockHistory]   = useState([]);
   const [historyProduct, setHistoryProduct] = useState(null);
   const [toast,          setToast]          = useState(null);
+  const [deleteTarget,   setDeleteTarget]   = useState(null); // { id, name } pending delete confirmation
 
   // form state
   const [editingId,    setEditingId]    = useState(null);
@@ -113,14 +114,20 @@ function Products() {
     }
   };
 
-  const deleteProduct = async (id, pName) => {
-    if (!window.confirm(`Delete "${pName}"? This cannot be undone.`)) return;
+  const requestDeleteProduct = (id, pName) => {
+    setDeleteTarget({ id, name: pName });
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/products/${id}`);
+      await api.delete(`/products/${deleteTarget.id}`);
       fetchProducts(currentPage);
-      showToast("success", `"${pName}" deleted.`);
+      showToast("success", `"${deleteTarget.name}" deleted.`);
     } catch(e) {
       showToast("error", e?.response?.data?.message || "Failed to delete product.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -290,7 +297,7 @@ function Products() {
                           <i className="ti ti-pencil" /> Edit
                         </button>
                         {role === "ADMIN" && (
-                          <button className="kb-btn kb-btn-danger" style={{ padding:"5px 10px", fontSize:11.5 }} onClick={() => deleteProduct(p._id, p.name)}>
+                          <button className="kb-btn kb-btn-danger" style={{ padding:"5px 10px", fontSize:11.5 }} onClick={() => requestDeleteProduct(p._id, p.name)}>
                             <i className="ti ti-trash" /> Delete
                           </button>
                         )}
@@ -448,6 +455,37 @@ function Products() {
               <button className="kb-btn kb-btn-outline" onClick={() => { setHistoryProduct(null); setStockHistory([]); }}>
                 <i className="ti ti-x" /> Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ DELETE CONFIRMATION MODAL ══════════════════ */}
+      {deleteTarget && (
+        <div style={overlay} onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={modalBox(420)}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 22px", borderBottom:"var(--border)", flexShrink:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+                <span style={{ width:38, height:38, borderRadius:10, background:"var(--red-b)", display:"grid", placeItems:"center", color:"var(--red-m)", fontSize:20 }}>
+                  <i className="ti ti-alert-triangle" />
+                </span>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:15, color:"var(--t1)" }}>Delete Product</div>
+                  <div style={{ fontSize:12, color:"var(--t3)", marginTop:1 }}>This action cannot be undone</div>
+                </div>
+              </div>
+              <button onClick={() => setDeleteTarget(null)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t3)", fontSize:22, lineHeight:1, padding:4 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+            <div style={{ padding:"20px 22px" }}>
+              <p style={{ margin:0, fontSize:13.5, color:"var(--t2)", lineHeight:1.5 }}>
+                Are you sure you want to delete <strong style={{ color:"var(--t1)" }}>"{deleteTarget.name}"</strong>?
+              </p>
+            </div>
+            <div style={{ padding:"14px 22px", borderTop:"var(--border)", display:"flex", justifyContent:"flex-end", gap:10, flexShrink:0, background:"var(--bg-surface)", borderRadius:"0 0 var(--rl) var(--rl)" }}>
+              <button className="kb-btn kb-btn-outline" onClick={() => setDeleteTarget(null)}><i className="ti ti-x" /> Cancel</button>
+              <button className="kb-btn kb-btn-danger" onClick={confirmDeleteProduct}><i className="ti ti-trash" /> Delete Product</button>
             </div>
           </div>
         </div>

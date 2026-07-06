@@ -12,11 +12,13 @@ function Expenses() {
   const [stats,       setStats]       = useState({ totalCount: 0, totalAmount: 0, uniqueCategories: 0 });
   const [toast,       setToast]       = useState(null);
 
-  const [title,     setTitle]     = useState("");
-  const [amount,    setAmount]    = useState("");
-  const [category,  setCategory]  = useState("");
-  const [note,      setNote]      = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [title,         setTitle]         = useState("");
+  const [amount,        setAmount]        = useState("");
+  const [category,      setCategory]      = useState("");
+  const [note,          setNote]          = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [date,          setDate]          = useState(() => new Date().toISOString().slice(0, 10));
+  const [modalOpen,     setModalOpen]     = useState(false);
 
   const categoryColors = ["blue", "amber", "purple", "green", "red"];
   const categoryColorMap = {};
@@ -73,14 +75,17 @@ function Expenses() {
     }
   };
 
-  const resetForm = () => { setTitle(""); setAmount(""); setCategory(""); setNote(""); };
+  const resetForm = () => {
+    setTitle(""); setAmount(""); setCategory(""); setNote(""); setPaymentMethod("CASH");
+    setDate(new Date().toISOString().slice(0, 10));
+  };
   const closeModal = () => { resetForm(); setModalOpen(false); };
 
   const addExpense = async () => {
     if (!title.trim())                    return showToast("error", "Expense title is required.");
     if (!amount || Number(amount) <= 0)   return showToast("error", "Please enter a valid amount.");
     try {
-      await api.post("/expenses", { title, amount: Number(amount), category, note });
+      await api.post("/expenses", { title, amount: Number(amount), category, note, paymentMethod, date });
       fetchExpenses(currentPage, search);
       fetchStats();
       closeModal();
@@ -94,6 +99,13 @@ function Expenses() {
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const formatDate = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "—";
+    return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   };
 
   const pageTotalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -111,6 +123,19 @@ function Expenses() {
     display: "flex", flexDirection: "column",
     border: "var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
   };
+
+  const methodBtnStyle = (active) => ({
+    padding: "0 16px",
+    borderRadius: "var(--r)",
+    border: `1.5px solid ${active ? "var(--brand)" : "#e2e8f0"}`,
+    background: "#fff",
+    color: active ? "var(--brand)" : "var(--t2)",
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap",
+  });
 
   return (
     <>
@@ -206,7 +231,9 @@ function Expenses() {
             <thead>
               <tr>
                 <th>Title</th>
+                <th>Date</th>
                 <th>Category</th>
+                <th>Method</th>
                 <th>Note</th>
                 <th className="text-end">Amount</th>
               </tr>
@@ -216,14 +243,16 @@ function Expenses() {
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "70%" }} /></td>
+                    <td><div className="kb-skeleton" style={{ height: 11, width: "60%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 18, width: 70, borderRadius: 20 }} /></td>
+                    <td><div className="kb-skeleton" style={{ height: 18, width: 60, borderRadius: 20 }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "60%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "40%", marginLeft: "auto" }} /></td>
                   </tr>
                 ))
               ) : expenses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: "40px", color: "var(--t3)" }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "40px", color: "var(--t3)" }}>
                     <i className="ti ti-receipt-off" style={{ fontSize: 28, display: "block", marginBottom: 8 }} />
                     No expenses recorded yet
                   </td>
@@ -239,10 +268,18 @@ function Expenses() {
                         <strong style={{ color: "var(--t1)" }}>{expense.title}</strong>
                       </div>
                     </td>
+                    <td style={{ color: "var(--t2)", fontSize: 12.5, whiteSpace: "nowrap" }}>
+                      {formatDate(expense.expenseDate || expense.createdAt)}
+                    </td>
                     <td>
                       {expense.category ? (
                         <span className={`kb-badge ${categoryColorMap[expense.category] || "blue"}`}>{expense.category}</span>
                       ) : <span style={{ color: "var(--t3)" }}>—</span>}
+                    </td>
+                    <td>
+                      <span className={`kb-badge ${expense.paymentMethod === "ONLINE" ? "blue" : "green"}`}>
+                        {expense.paymentMethod === "ONLINE" ? "Online" : "Cash"}
+                      </span>
                     </td>
                     <td style={{ color: "var(--t2)", fontSize: 12.5 }}>
                       {expense.note || <span style={{ color: "var(--t3)" }}>—</span>}
@@ -259,7 +296,7 @@ function Expenses() {
             {expenses.length > 0 && (
               <tfoot>
                 <tr style={{ background: "var(--bg-surface)" }}>
-                  <td colSpan={3} style={{ padding: "10px", fontWeight: 700, fontSize: 12.5, color: "var(--t2)", borderTop: "2px solid #e2e8f0" }}>
+                  <td colSpan={5} style={{ padding: "10px", fontWeight: 700, fontSize: 12.5, color: "var(--t2)", borderTop: "2px solid #e2e8f0" }}>
                     {totalPages > 1 ? `Page ${currentPage} Total` : "Total"}
                   </td>
                   <td className="text-end" style={{ padding: "10px", fontWeight: 800, fontSize: 14, color: "var(--red-m)", borderTop: "2px solid #e2e8f0" }}>
@@ -310,9 +347,38 @@ function Expenses() {
                 <label className="kb-label">Expense Title</label>
                 <input className="kb-input" placeholder="e.g. Office Rent" value={title} onChange={e => setTitle(e.target.value)} />
               </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="kb-label">Amount (Rs.)</label>
+                  <input
+                    type="number"
+                    className="kb-input"
+                    placeholder="0"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="kb-label">Date</label>
+                  <input
+                    type="date"
+                    className="kb-input"
+                    value={date}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={e => setDate(e.target.value)}
+                  />
+                </div>
+              </div>
               <div>
-                <label className="kb-label">Amount (Rs.)</label>
-                <input type="number" className="kb-input" placeholder="0" value={amount} onChange={e => setAmount(e.target.value)} />
+                <label className="kb-label">Payment Method</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" onClick={() => setPaymentMethod("CASH")} style={{ ...methodBtnStyle(paymentMethod === "CASH"), flex: 1, padding: "9px 16px" }}>
+                    Cash
+                  </button>
+                  <button type="button" onClick={() => setPaymentMethod("ONLINE")} style={{ ...methodBtnStyle(paymentMethod === "ONLINE"), flex: 1, padding: "9px 16px" }}>
+                    Online
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="kb-label">Category</label>
@@ -325,7 +391,8 @@ function Expenses() {
               {amount && Number(amount) > 0 && (
                 <div style={{ background: "var(--red-b)", border: "1px solid var(--red-bd)", borderRadius: "var(--r)", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 12.5, color: "var(--red)", fontWeight: 600 }}>
-                    <i className="ti ti-coins" style={{ marginRight: 6 }} />Expense Amount
+                    <i className="ti ti-coins" style={{ marginRight: 6 }} />
+                    Expense Amount ({paymentMethod === "ONLINE" ? "Online" : "Cash"})
                   </span>
                   <span style={{ fontSize: 15, fontWeight: 800, color: "var(--red-m)" }}>
                     Rs. {Number(amount).toLocaleString()}
