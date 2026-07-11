@@ -7,7 +7,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL:
-    "https://merokarobar-lyart.vercel.app/api",
+    "https://merokarobar-lyart.onrender.app/api",
 });
 
 api.interceptors.request.use(
