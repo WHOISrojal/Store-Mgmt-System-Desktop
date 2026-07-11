@@ -169,40 +169,49 @@ export default function Dashboard() {
   return (
     <div>
 
-      {/* ══ ALERTS ══════════════════════════════════════ */}
-      {data.overdueCheques?.length > 0 && (
-        <div className="kb-alert danger">
-          <div className="kb-alert-title">
-            <i className="ti ti-alert-circle" />
-            {data.overdueCheques.length} overdue cheque{data.overdueCheques.length > 1 ? "s" : ""}
-          </div>
-          {data.overdueCheques.map(c => (
-            <div key={c._id} style={{ fontSize:12.5, display:"flex", gap:6, alignItems:"center" }}>
-              <a href={`/invoice/${c._id}`} target="_blank" rel="noreferrer" style={{ fontWeight:600 }}>
-                INV-{c._id.slice(-6).toUpperCase()}
-              </a>
-              <span style={{ color:"#fca5a5" }}>·</span>
-              {c.customer?.name || "Walk-in"}
-              <span style={{ color:"#fca5a5" }}>·</span>
-              {fmt(c.totalAmount)}
-              <span style={{ color:"#fca5a5" }}>·</span>
-              {new Date(c.chequeDate).toLocaleDateString()}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ══ ALERTS — side by side ═══════════════════════ */}
+      {(data.overdueCheques?.length > 0 || data.todayCheques?.length > 0) && (
+        <div style={{ display:"grid", gridTemplateColumns: data.overdueCheques?.length > 0 && data.todayCheques?.length > 0 ? "1fr 1fr" : "1fr", gap:12, marginBottom:18 }}>
 
-      {data.todayCheques?.length > 0 && (
-        <div className="kb-alert warning">
-          <div className="kb-alert-title">
-            <i className="ti ti-clock" /> {data.todayCheques.length} cheque{data.todayCheques.length > 1 ? "s" : ""} due today
-          </div>
-          {data.todayCheques.map(c => (
-            <div key={c._id} style={{ fontSize:12.5 }}>
-              <a href={`/invoice/${c._id}`} style={{ fontWeight:600 }}>INV-{c._id.slice(-6).toUpperCase()}</a>
-              {" · "}{c.customer?.name || "Walk-in"}{" · "}{fmt(c.totalAmount)}
+          {/* Left — Overdue */}
+          {data.overdueCheques?.length > 0 && (
+            <div className="kb-alert danger" style={{ margin:0 }}>
+              <div className="kb-alert-title">
+                <i className="ti ti-alert-circle" />
+                {data.overdueCheques.length} overdue cheque{data.overdueCheques.length > 1 ? "s" : ""}
+              </div>
+              {data.overdueCheques.map(c => (
+                <div key={c._id} style={{ fontSize:12.5, display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                  <a href={`/invoice/${c._id}`} target="_blank" rel="noreferrer" style={{ fontWeight:600 }}>
+                    INV-{c._id.slice(-6).toUpperCase()}
+                  </a>
+                  <span style={{ color:"#fca5a5" }}>·</span>
+                  {c.customer?.name || "Walk-in"}
+                  <span style={{ color:"#fca5a5" }}>·</span>
+                  {fmt(c.totalAmount)}
+                  <span style={{ color:"#fca5a5" }}>·</span>
+                  {new Date(c.chequeDate).toLocaleDateString()}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {/* Right — Today's cheques */}
+          {data.todayCheques?.length > 0 && (
+            <div className="kb-alert warning" style={{ margin:0 }}>
+              <div className="kb-alert-title">
+                <i className="ti ti-clock" />
+                {data.todayCheques.length} cheque{data.todayCheques.length > 1 ? "s" : ""} due today
+              </div>
+              {data.todayCheques.map(c => (
+                <div key={c._id} style={{ fontSize:12.5 }}>
+                  <a href={`/invoice/${c._id}`} style={{ fontWeight:600 }}>INV-{c._id.slice(-6).toUpperCase()}</a>
+                  {" · "}{c.customer?.name || "Walk-in"}{" · "}{fmt(c.totalAmount)}
+                </div>
+              ))}
+            </div>
+          )}
+
         </div>
       )}
 
@@ -218,97 +227,9 @@ export default function Dashboard() {
         <StatCard label="Customers"       value={data.totalCustomers}        icon="ti-users"        color="green" />
       </div>
 
-      {/* ══ ROW 2 — TODAY + CHEQUE SUMMARY ════════════ */}
-      <SectionHead icon="ti-sun" title="Today & Finance" color="var(--amber-m)" />
-      <div className="kb-row-2">
-
-        <div className="kb-card">
-          <div className="kb-card-header">
-            <span className="kb-card-title">
-              <i className="ti ti-calendar-today" style={{ color:"var(--amber-m)" }} />
-              Today's summary
-            </span>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[
-              { label:"Sales",       value:fmt(data.todaySales),     c:"var(--t1)" },
-              { label:"Profit",      value:fmt(data.todayProfit),    c:data.todayProfit    >= 0 ? "var(--green-m)" : "var(--red-m)" },
-              { label:"Expenses",    value:fmt(data.todayExpenses),  c:"var(--red-m)" },
-              { label:"Net profit",  value:fmt(data.todayNetProfit), c:data.todayNetProfit >= 0 ? "var(--green-m)" : "var(--red-m)" },
-            ].map(item => (
-              <div key={item.label} style={{
-                background:"var(--bg-surface)", border:"1px solid #e2e8f0",
-                borderRadius:"var(--r)", padding:"12px 14px",
-              }}>
-                <div style={{ fontSize:10, fontWeight:700, color:"var(--t3)", textTransform:"uppercase", letterSpacing:".07em", marginBottom:6 }}>
-                  {item.label}
-                </div>
-                <div style={{ fontSize:17, fontWeight:800, color:item.c, letterSpacing:"-0.4px" }}>
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="kb-card">
-          <div className="kb-card-header">
-            <span className="kb-card-title">
-              <i className="ti ti-writing" style={{ color:"var(--blue-m)" }} />
-              Cheque summary
-            </span>
-            <a className="kb-card-link" href="/cheques">
-              View all <i className="ti ti-arrow-right" style={{ fontSize:12 }} />
-            </a>
-          </div>
-          {[
-            { label:"Pending", value:fmt(data.pendingChequeAmount), c:"var(--t1)",    dot:"#94a3b8" },
-            { label:"Cleared", value:fmt(data.clearedChequeAmount), c:"var(--green-m)", dot:"var(--green-m)" },
-            { label:"Bounced", value:fmt(data.bouncedChequeAmount), c:"var(--red-m)",   dot:"var(--red-m)" },
-            { label:"Overdue", value:fmt(data.overdueChequeAmount), c:"var(--amber-m)", dot:"var(--amber-m)" },
-          ].map(row => (
-            <div key={row.label} style={{
-              display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"10px 0", borderBottom:"1px solid #f1f5f9",
-            }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:7, height:7, borderRadius:"50%", background:row.dot, flexShrink:0 }} />
-                <span style={{ fontSize:13, color:"var(--t2)" }}>{row.label}</span>
-              </div>
-              <strong style={{ fontSize:13, color:row.c }}>{row.value}</strong>
-            </div>
-          ))}
-        </div>
-
-      </div>
-
-      {/* ══ ROW 3 — SALES CHART (full width) ══════════ */}
-      <SectionHead icon="ti-chart-line" title="Sales trend" color="var(--blue-m)" />
-      <div style={{ marginBottom:18 }}>
-        <div className="kb-card">
-          <div className="kb-card-header">
-            <span className="kb-card-title">
-              <i className="ti ti-chart-line" style={{ color:"var(--blue-m)" }} />
-              Sales — last 7 days
-            </span>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:11, color:"var(--t3)" }}>7-day total</span>
-              <span style={{
-                fontSize:13, fontWeight:700, color:"var(--blue-m)",
-                background:"var(--blue-b)", padding:"3px 10px",
-                borderRadius:20, border:"1px solid var(--blue-bd)"
-              }}>
-                {fmt(weekTotal)}
-              </span>
-            </div>
-          </div>
-          <SalesChart last7DaysSales={data.last7DaysSales} />
-        </div>
-      </div>
-
-      {/* ══ ROW 4 — DAILY CASH + LOW STOCK ═══════════ */}
+      {/* ══ ROW 2 — CASH & INVENTORY (moved up) ════════ */}
       <SectionHead icon="ti-cash" title="Cash & Inventory" color="var(--green-m)" />
-      <div className="kb-row-2">
+      <div className="kb-row-2" style={{ marginBottom:18 }}>
 
         <div className="kb-card">
           <div className="kb-card-header">
@@ -382,6 +303,148 @@ export default function Dashboard() {
 
       </div>
 
+      {/* ══ ROW 3 — SALES CHART (full width) ══════════ */}
+      <SectionHead icon="ti-chart-line" title="Sales trend" color="var(--blue-m)" />
+      <div style={{ marginBottom:18 }}>
+        <div className="kb-card">
+          <div className="kb-card-header">
+            <span className="kb-card-title">
+              <i className="ti ti-chart-line" style={{ color:"var(--blue-m)" }} />
+              Sales — last 7 days
+            </span>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:11, color:"var(--t3)" }}>7-day total</span>
+              <span style={{
+                fontSize:13, fontWeight:700, color:"var(--blue-m)",
+                background:"var(--blue-b)", padding:"3px 10px",
+                borderRadius:20, border:"1px solid var(--blue-bd)"
+              }}>
+                {fmt(weekTotal)}
+              </span>
+            </div>
+          </div>
+          <SalesChart last7DaysSales={data.last7DaysSales} />
+        </div>
+      </div>
+
+      {/* ══ ROW 4 — TODAY & FINANCE (moved down) ═══════ */}
+      <SectionHead icon="ti-sun" title="Today & Finance" color="var(--amber-m)" />
+      <div className="kb-row-3">
+
+        {/* Today's summary */}
+        <div className="kb-card">
+          <div className="kb-card-header">
+            <span className="kb-card-title">
+              <i className="ti ti-calendar-today" style={{ color:"var(--amber-m)" }} />
+              Today's summary
+            </span>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {[
+              { label:"Sales",       value:fmt(data.todaySales),     c:"var(--t1)" },
+              { label:"Profit",      value:fmt(data.todayProfit),    c:data.todayProfit    >= 0 ? "var(--green-m)" : "var(--red-m)" },
+              { label:"Expenses",    value:fmt(data.todayExpenses),  c:"var(--red-m)" },
+              { label:"Net profit",  value:fmt(data.todayNetProfit), c:data.todayNetProfit >= 0 ? "var(--green-m)" : "var(--red-m)" },
+            ].map(item => (
+              <div key={item.label} style={{
+                background:"var(--bg-surface)", border:"1px solid #e2e8f0",
+                borderRadius:"var(--r)", padding:"10px 12px",
+              }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"var(--t3)", textTransform:"uppercase", letterSpacing:".07em", marginBottom:5 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize:15, fontWeight:800, color:item.c, letterSpacing:"-0.3px" }}>
+                  {item.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cheque summary */}
+        <div className="kb-card">
+          <div className="kb-card-header">
+            <span className="kb-card-title">
+              <i className="ti ti-writing" style={{ color:"var(--blue-m)" }} />
+              Cheque summary
+            </span>
+            <a className="kb-card-link" href="/cheques">
+              View all <i className="ti ti-arrow-right" style={{ fontSize:12 }} />
+            </a>
+          </div>
+          {[
+            { label:"Pending", value:fmt(data.pendingChequeAmount), c:"var(--t1)",      dot:"#94a3b8" },
+            { label:"Cleared", value:fmt(data.clearedChequeAmount), c:"var(--green-m)", dot:"var(--green-m)" },
+            { label:"Bounced", value:fmt(data.bouncedChequeAmount), c:"var(--red-m)",   dot:"var(--red-m)" },
+            { label:"Overdue", value:fmt(data.overdueChequeAmount), c:"var(--amber-m)", dot:"var(--amber-m)" },
+          ].map(row => (
+            <div key={row.label} style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"9px 0", borderBottom:"1px solid #f1f5f9",
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ width:7, height:7, borderRadius:"50%", background:row.dot, flexShrink:0 }} />
+                <span style={{ fontSize:13, color:"var(--t2)" }}>{row.label}</span>
+              </div>
+              <strong style={{ fontSize:13, color:row.c }}>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        {/* Today's cheques */}
+        <div className="kb-card">
+          <div className="kb-card-header">
+            <span className="kb-card-title">
+              <i className="ti ti-calendar-event" style={{ color:"#0891b2" }} />
+              Today's cheques
+            </span>
+            <a className="kb-card-link" href="/cheques" style={{ color:"#0891b2" }}>
+              View all <i className="ti ti-arrow-right" style={{ fontSize:12 }} />
+            </a>
+          </div>
+          {!data.todayCheques?.length ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px 0", color:"var(--t3)", gap:6 }}>
+              <i className="ti ti-calendar-check" style={{ fontSize:28, color:"#a5f3fc" }} />
+              <div style={{ fontSize:12.5 }}>No cheques due today</div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#ecfeff", border:"1px solid #a5f3fc", borderRadius:"var(--r)", padding:"8px 12px", marginBottom:10 }}>
+                <span style={{ fontSize:12, color:"#0891b2", fontWeight:600 }}>
+                  <i className="ti ti-receipt" style={{ marginRight:5 }} />
+                  {data.todayCheques.length} cheque{data.todayCheques.length > 1 ? "s" : ""} due
+                </span>
+                <span style={{ fontSize:13, fontWeight:800, color:"#0891b2" }}>
+                  {fmt(data.todayCheques.reduce((s,c) => s + c.totalAmount, 0))}
+                </span>
+              </div>
+              {data.todayCheques.map((c, i) => (
+                <div key={c._id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 0", borderBottom: i < data.todayCheques.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+                    <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, background:"#ecfeff", display:"grid", placeItems:"center", fontSize:9, fontWeight:700, color:"#0891b2" }}>
+                      {(c.customer?.name || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:"var(--t1)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:100 }}>
+                        {c.customer?.name || "Walk-in"}
+                      </div>
+                      <div style={{ fontSize:10.5, color:"var(--t3)", fontFamily:"monospace" }}>{c.chequeNumber || "—"}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontSize:12.5, fontWeight:700, color:"var(--t1)" }}>{fmt(c.totalAmount)}</div>
+                    <a href={`/invoice/${c._id}`} style={{ fontSize:10.5, color:"#0891b2", textDecoration:"none", fontWeight:600 }}>
+                      INV-{c._id.slice(-6).toUpperCase()} →
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
       {/* ══ ROW 5 — TOP SELLING + TOP PROFITABLE ══════ */}
       <SectionHead icon="ti-award" title="Product performance" color="var(--amber-m)" />
       <div className="kb-row-2">
@@ -402,12 +465,7 @@ export default function Dashboard() {
                   {data.topSellingProducts.map((p, i) => (
                     <tr key={p._id}>
                       <td style={{ width:28 }}>
-                        <span style={{
-                          display:"inline-flex", alignItems:"center", justifyContent:"center",
-                          width:20, height:20, borderRadius:"50%", fontSize:10, fontWeight:700,
-                          background: i === 0 ? "#fef3c7" : i === 1 ? "#f1f5f9" : "transparent",
-                          color: i === 0 ? "#92400e" : i === 1 ? "#475569" : "var(--t3)",
-                        }}>
+                        <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:20, height:20, borderRadius:"50%", fontSize:10, fontWeight:700, background: i === 0 ? "#fef3c7" : i === 1 ? "#f1f5f9" : "transparent", color: i === 0 ? "#92400e" : i === 1 ? "#475569" : "var(--t3)" }}>
                           {i+1}
                         </span>
                       </td>
@@ -440,12 +498,7 @@ export default function Dashboard() {
                   {data.topProfitableProducts.map((p, i) => (
                     <tr key={p._id}>
                       <td style={{ width:28 }}>
-                        <span style={{
-                          display:"inline-flex", alignItems:"center", justifyContent:"center",
-                          width:20, height:20, borderRadius:"50%", fontSize:10, fontWeight:700,
-                          background: i === 0 ? "#ecfdf5" : i === 1 ? "#f1f5f9" : "transparent",
-                          color: i === 0 ? "#065f46" : i === 1 ? "#475569" : "var(--t3)",
-                        }}>
+                        <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:20, height:20, borderRadius:"50%", fontSize:10, fontWeight:700, background: i === 0 ? "#ecfdf5" : i === 1 ? "#f1f5f9" : "transparent", color: i === 0 ? "#065f46" : i === 1 ? "#475569" : "var(--t3)" }}>
                           {i+1}
                         </span>
                       </td>
@@ -482,10 +535,7 @@ export default function Dashboard() {
                       <tr key={i}>
                         <td>
                           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                            <div style={{
-                              width:6, height:6, borderRadius:"50%", flexShrink:0,
-                              background: ["#2563eb","#059669","#d97706","#7c3aed","#dc2626"][i] || "#94a3b8"
-                            }} />
+                            <div style={{ width:6, height:6, borderRadius:"50%", flexShrink:0, background: ["#2563eb","#059669","#d97706","#7c3aed","#dc2626"][i] || "#94a3b8" }} />
                             {c.category}
                           </div>
                         </td>

@@ -1,14 +1,53 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function Login() {
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [initialized, setInitialized] = useState(true);
+
+  const [setupName, setSetupName] = useState("");
+  const [setupUsername, setSetupUsername] = useState("");
+  const [setupPassword, setSetupPassword] = useState("");
+
+  useEffect(() => {
+    checkSetupStatus();
+  }, []);
+
+  const checkSetupStatus = async () => {
+    try {
+      const response = await api.get("/auth/setup-status");
+
+      setInitialized(response.data.initialized);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const createAdmin = async () => {
+    try {
+      await api.post("/auth/setup", {
+        name: setupName,
+        username: setupUsername,
+        password: setupPassword,
+      });
+
+      alert("Administrator created successfully");
+
+      setInitialized(true);
+
+      setSetupName("");
+      setSetupUsername("");
+      setSetupPassword("");
+    } catch (error) {
+      alert(error?.response?.data?.message || "Failed to create administrator");
+    }
+  };
 
   const login = async () => {
     if (!username.trim() || !password.trim()) {
@@ -20,8 +59,8 @@ function Login() {
       setError("");
       const response = await api.post("/auth/login", { username, password });
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem("role",  response.data.role);
-      localStorage.setItem("name",  response.data.name);
+      localStorage.setItem("role", response.data.role);
+      localStorage.setItem("name", response.data.name);
       window.location.href = "/";
     } catch (err) {
       setError(err?.response?.data?.message || "Invalid username or password.");
@@ -30,7 +69,9 @@ function Login() {
     }
   };
 
-  const handleKey = (e) => { if (e.key === "Enter") login(); };
+  const handleKey = (e) => {
+    if (e.key === "Enter") login();
+  };
 
   return (
     <>
@@ -295,7 +336,6 @@ function Login() {
       `}</style>
 
       <div className="login-page">
-
         {/* ── Left — brand panel ────────────────────── */}
         <div className="login-left">
           <div className="login-brand">
@@ -308,7 +348,8 @@ function Login() {
 
           <div className="login-headline">
             <h1>
-              Run your business<br />
+              Run your business
+              <br />
               <span>smarter, faster.</span>
             </h1>
             <p>
@@ -324,7 +365,7 @@ function Login() {
               "Customer & supplier ledger",
               "Cheque tracking & audit logs",
               "Role-based access control",
-            ].map(f => (
+            ].map((f) => (
               <div key={f} className="login-feature">
                 <div className="login-feature-dot" />
                 {f}
@@ -336,71 +377,116 @@ function Login() {
         {/* ── Right — form ──────────────────────────── */}
         <div className="login-right">
           <div className="login-card">
-
             <div className="login-card-header">
-              <h2>Welcome back</h2>
-              <p>Sign in to your Karobar account to continue</p>
+              <h2>{initialized ? "Welcome back" : "First Time Setup"}</h2>
+
+              <p>
+                {initialized
+                  ? "Sign in to your Karobar account to continue"
+                  : "Create the first administrator account"}
+              </p>
             </div>
 
             {error && (
               <div className="login-error">
-                <i className="ti ti-alert-circle" style={{ fontSize: 15, flexShrink: 0 }} />
+                <i
+                  className="ti ti-alert-circle"
+                  style={{ fontSize: 15, flexShrink: 0 }}
+                />
                 {error}
               </div>
             )}
 
-            <div className="login-field">
-              <label className="login-label">Username</label>
-              <div className="login-input-wrap">
-                <i className="ti ti-user login-input-icon" />
-                <input
-                  className="login-input"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={e => { setUsername(e.target.value); setError(""); }}
-                  onKeyDown={handleKey}
-                  autoFocus
-                />
-              </div>
-            </div>
+            {initialized ? (
+              <>
+                <div className="login-field">
+                  <label className="login-label">Username</label>
 
-            <div className="login-field">
-              <label className="login-label">Password</label>
-              <div className="login-input-wrap">
-                <i className="ti ti-lock login-input-icon" />
-                <input
-                  type={showPass ? "text" : "password"}
-                  className="login-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); setError(""); }}
-                  onKeyDown={handleKey}
-                />
+                  <div className="login-input-wrap">
+                    <input
+                      className="login-input"
+                      placeholder="Enter your username"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        setError("");
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="login-field">
+                  <label className="login-label">Password</label>
+
+                  <div className="login-input-wrap">
+                    <input
+                      type={showPass ? "text" : "password"}
+                      className="login-input"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <button
-                  className="login-eye"
-                  onClick={() => setShowPass(p => !p)}
-                  tabIndex={-1}
-                  type="button"
+                  className="login-btn"
+                  onClick={login}
+                  disabled={loading}
                 >
-                  <i className={`ti ${showPass ? "ti-eye-off" : "ti-eye"}`} />
+                  Sign In
                 </button>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="login-field">
+                  <label className="login-label">Administrator Name</label>
 
-            <button className="login-btn" onClick={login} disabled={loading}>
-              {loading
-                ? <><div className="login-spinner" /> Signing in…</>
-                : <><i className="ti ti-login" /> Sign in</>
-              }
-            </button>
+                  <input
+                    className="login-input"
+                    placeholder="Enter administrator name"
+                    value={setupName}
+                    onChange={(e) => setSetupName(e.target.value)}
+                  />
+                </div>
+
+                <div className="login-field">
+                  <label className="login-label">Username</label>
+
+                  <input
+                    className="login-input"
+                    placeholder="Enter username"
+                    value={setupUsername}
+                    onChange={(e) => setSetupUsername(e.target.value)}
+                  />
+                </div>
+
+                <div className="login-field">
+                  <label className="login-label">Password</label>
+
+                  <input
+                    type="password"
+                    className="login-input"
+                    placeholder="Enter password"
+                    value={setupPassword}
+                    onChange={(e) => setSetupPassword(e.target.value)}
+                  />
+                </div>
+
+                <button className="login-btn" onClick={createAdmin}>
+                  Create Administrator
+                </button>
+              </>
+            )}
 
             <div className="login-footer">
               Karobar © {new Date().getFullYear()} · Business Manager
             </div>
-
           </div>
         </div>
-
       </div>
     </>
   );

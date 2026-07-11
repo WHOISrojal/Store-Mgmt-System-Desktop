@@ -11,21 +11,13 @@ function Cheques() {
   const [totalPages,  setTotalPages]  = useState(1);
   const [totalCount,  setTotalCount]  = useState(0);
   const [loading,     setLoading]     = useState(false);
-  const [stats,       setStats]       = useState({ pending: 0, cleared: 0, bounced: 0, overdue: 0, totalPendingValue: 0 });
+  const [stats,       setStats]       = useState({ pending:0, cleared:0, bounced:0, overdue:0, totalPendingValue:0 });
   const [toast,       setToast]       = useState(null);
 
   useEffect(() => { fetchStats(); }, []);
-
+  useEffect(() => { fetchCheques(currentPage, filter, search); }, [currentPage, filter]);
   useEffect(() => {
-    fetchCheques(currentPage, filter, search);
-  }, [currentPage, filter]);
-
-  // Debounce search
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setCurrentPage(1);
-      fetchCheques(1, filter, search);
-    }, 300);
+    const t = setTimeout(() => { setCurrentPage(1); fetchCheques(1, filter, search); }, 300);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -35,20 +27,18 @@ function Cheques() {
   };
 
   const fetchStats = async () => {
-    try {
-      const r = await api.get("/sales/cheques/stats");
-      setStats(r.data);
-    } catch {
-      // silently ignore if not yet available
-    }
+    try { const r = await api.get("/sales/cheques/stats"); setStats(r.data); } catch {}
   };
 
   const fetchCheques = async (page = 1, status = "ALL", q = "") => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page, limit: 15 });
-      if (status !== "ALL") params.append("status", status);
-      if (q.trim())         params.append("search", q.trim());
+
+      // TODAY filter — handled client-side after fetch
+      // We fetch ALL and filter by today's date on the frontend
+      if (status !== "ALL" && status !== "TODAY") params.append("status", status);
+      if (q.trim()) params.append("search", q.trim());
 
       const r = await api.get(`/sales/cheques?${params}`);
 
@@ -62,11 +52,8 @@ function Cheques() {
         setTotalPages(r.data.totalPages ?? 1);
         setTotalCount(r.data.totalCount ?? 0);
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   const updateStatus = async (id, status) => {
@@ -75,76 +62,80 @@ function Cheques() {
       fetchCheques(currentPage, filter, search);
       fetchStats();
       showToast("success", `Cheque marked as ${status.toLowerCase()}.`);
-    } catch (error) {
-      console.error(error);
-      showToast("error", error?.response?.data?.message || "Failed to update cheque status.");
+    } catch (e) {
+      showToast("error", e?.response?.data?.message || "Failed to update cheque status.");
     }
   };
 
-  const handleFilterChange = (key) => {
-    setFilter(key);
-    setCurrentPage(1);
+  const handleFilterChange = (key) => { setFilter(key); setCurrentPage(1); };
+  const handlePageChange   = (page) => { setCurrentPage(page); window.scrollTo({ top:0, behavior:"smooth" }); };
+
+  const isOverdue = (c) => c.chequeStatus === "PENDING" && new Date(c.chequeDate) < new Date();
+
+  const isToday = (c) => {
+    const d = new Date(c.chequeDate);
+    const t = new Date();
+    return d.toDateString() === t.toDateString();
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  // Apply TODAY filter client-side
+  const displayedCheques = filter === "TODAY"
+    ? cheques.filter(c => isToday(c))
+    : cheques;
 
-  const isOverdue = (cheque) =>
-    cheque.chequeStatus === "PENDING" && new Date(cheque.chequeDate) < new Date();
+  const todayCount = cheques.filter(c => isToday(c)).length;
 
   const filters = [
-    { key: "ALL",     label: "All",     color: "var(--brand)",   bg: "var(--blue-b)",   border: "var(--blue-bd)"   },
-    { key: "PENDING", label: "Pending", color: "#d97706",        bg: "var(--amber-b)",  border: "var(--amber-bd)"  },
-    { key: "CLEARED", label: "Cleared", color: "var(--green-m)", bg: "var(--green-b)",  border: "var(--green-bd)"  },
-    { key: "BOUNCED", label: "Bounced", color: "var(--red-m)",   bg: "var(--red-b)",    border: "var(--red-bd)"    },
-    { key: "OVERDUE", label: "Overdue", color: "#7c3aed",        bg: "var(--purple-b)", border: "var(--purple-bd)" },
+    { key:"ALL",     label:"All",     color:"var(--brand)",   bg:"var(--blue-b)",   border:"var(--blue-bd)",   count: null },
+    { key:"TODAY",   label:"Today",   color:"#0891b2",        bg:"#ecfeff",         border:"#a5f3fc",          count: todayCount },
+    { key:"PENDING", label:"Pending", color:"#d97706",        bg:"var(--amber-b)",  border:"var(--amber-bd)",  count: stats.pending },
+    { key:"CLEARED", label:"Cleared", color:"var(--green-m)", bg:"var(--green-b)",  border:"var(--green-bd)",  count: null },
+    { key:"BOUNCED", label:"Bounced", color:"var(--red-m)",   bg:"var(--red-b)",    border:"var(--red-bd)",    count: null },
+    { key:"OVERDUE", label:"Overdue", color:"#7c3aed",        bg:"var(--purple-b)", border:"var(--purple-bd)", count: stats.overdue },
   ];
 
   const statusBadge = (cheque) => {
-    if (isOverdue(cheque)) return <span className="kb-badge purple"><i className="ti ti-clock-exclamation" style={{ fontSize: 10 }} />Overdue</span>;
-    if (cheque.chequeStatus === "CLEARED") return <span className="kb-badge green"><i className="ti ti-check" style={{ fontSize: 10 }} />Cleared</span>;
-    if (cheque.chequeStatus === "BOUNCED") return <span className="kb-badge red"><i className="ti ti-x" style={{ fontSize: 10 }} />Bounced</span>;
-    return <span className="kb-badge amber"><i className="ti ti-clock" style={{ fontSize: 10 }} />Pending</span>;
+    if (isOverdue(cheque))                 return <span className="kb-badge purple"><i className="ti ti-clock-exclamation" style={{ fontSize:10 }} /> Overdue</span>;
+    if (cheque.chequeStatus === "CLEARED") return <span className="kb-badge green"><i className="ti ti-check" style={{ fontSize:10 }} /> Cleared</span>;
+    if (cheque.chequeStatus === "BOUNCED") return <span className="kb-badge red"><i className="ti ti-x" style={{ fontSize:10 }} /> Bounced</span>;
+    return <span className="kb-badge amber"><i className="ti ti-clock" style={{ fontSize:10 }} /> Pending</span>;
   };
 
   return (
     <>
-      {/* ── Toast ── */}
+      {/* ── Toast ─────────────────────────────────────── */}
       {toast && (
         <div style={{
-          position: "fixed", top: 20, right: 20, zIndex: 2000,
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "12px 18px", borderRadius: "var(--r)",
+          position:"fixed", top:20, right:20, zIndex:2000,
+          display:"flex", alignItems:"center", gap:10,
+          padding:"12px 18px", borderRadius:"var(--r)",
           background: toast.type === "success" ? "var(--green-b)" : "var(--red-b)",
-          border: `1px solid ${toast.type === "success" ? "var(--green-bd)" : "var(--red-bd)"}`,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-          fontSize: 13, fontWeight: 600,
+          border:`1px solid ${toast.type === "success" ? "var(--green-bd)" : "var(--red-bd)"}`,
+          boxShadow:"0 4px 20px rgba(0,0,0,0.12)",
+          fontSize:13, fontWeight:600,
           color: toast.type === "success" ? "var(--green)" : "var(--red)",
-          animation: "slideIn .2s ease",
-          maxWidth: 340,
+          animation:"slideIn .2s ease", maxWidth:340,
         }}>
-          <i className={`ti ${toast.type === "success" ? "ti-circle-check" : "ti-alert-circle"}`} style={{ fontSize: 18, flexShrink: 0 }} />
+          <i className={`ti ${toast.type === "success" ? "ti-circle-check" : "ti-alert-circle"}`} style={{ fontSize:18, flexShrink:0 }} />
           {toast.message}
-          <button onClick={() => setToast(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 16, padding: 0, marginLeft: 4, opacity: 0.6 }}>
+          <button onClick={() => setToast(null)} style={{ background:"none", border:"none", cursor:"pointer", color:"inherit", fontSize:16, padding:0, marginLeft:4, opacity:.6 }}>
             <i className="ti ti-x" />
           </button>
         </div>
       )}
 
-      {/* ── Page Header ── */}
+      {/* ── Page header ───────────────────────────────── */}
       <div className="kb-page-header">
         <div>
           <h1 className="kb-page-title">Cheque Management</h1>
-          <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--t3)" }}>
+          <p style={{ margin:"2px 0 0", fontSize:12.5, color:"var(--t3)" }}>
             Track and manage all cheque transactions
           </p>
         </div>
       </div>
 
-      {/* ── Stat Cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
+      {/* ── Stat cards ────────────────────────────────── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:18 }}>
         <div className="kb-stat-card amber">
           <div className="kb-stat-top">
             <span className="kb-stat-label">Pending</span>
@@ -166,61 +157,59 @@ function Cheques() {
           </div>
           <div className="kb-stat-value red">{stats.bounced}</div>
         </div>
-        <div className="kb-stat-card purple" style={{ background: "linear-gradient(160deg,#fff 70%,#f5f3ff)" }}>
+        <div className="kb-stat-card" style={{ background:"linear-gradient(160deg,#fff 70%,#f5f3ff)", border:"var(--border)", borderRadius:"var(--rl)", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:0, left:0, right:0, height:3, borderRadius:"var(--rl) var(--rl) 0 0", background:"#7c3aed" }} />
           <div className="kb-stat-top">
             <span className="kb-stat-label">Overdue</span>
             <span className="kb-stat-icon purple"><i className="ti ti-clock-exclamation" /></span>
           </div>
-          <div className="kb-stat-value" style={{ color: "#7c3aed" }}>{stats.overdue}</div>
+          <div className="kb-stat-value" style={{ color:"#7c3aed" }}>{stats.overdue}</div>
         </div>
       </div>
 
-      {/* Pending value banner */}
+      {/* ── Pending value banner ──────────────────────── */}
       {stats.totalPendingValue > 0 && (
         <div style={{
-          background: "var(--amber-b)", border: "1px solid var(--amber-bd)",
-          borderRadius: "var(--r)", padding: "12px 16px", marginBottom: 18,
-          display: "flex", alignItems: "center", gap: 10,
+          background:"var(--amber-b)", border:"1px solid var(--amber-bd)",
+          borderRadius:"var(--r)", padding:"12px 16px", marginBottom:18,
+          display:"flex", alignItems:"center", gap:10,
         }}>
-          <i className="ti ti-info-circle" style={{ color: "#d97706", fontSize: 18, flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: "var(--amber)", fontWeight: 600 }}>
+          <i className="ti ti-info-circle" style={{ color:"#d97706", fontSize:18, flexShrink:0 }} />
+          <span style={{ fontSize:13, color:"var(--amber)", fontWeight:600 }}>
             Total pending cheque value: <strong>Rs. {stats.totalPendingValue.toLocaleString()}</strong>
           </span>
         </div>
       )}
 
-      {/* ── Filters & Search ── */}
-      <div className="kb-card" style={{ marginBottom: 18, padding: "14px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {/* ── Filters + search ──────────────────────────── */}
+      <div className="kb-card" style={{ marginBottom:18, padding:"14px 16px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           {filters.map(f => (
-            <button
-              key={f.key}
-              onClick={() => handleFilterChange(f.key)}
-              style={{
-                padding: "6px 14px", borderRadius: "var(--r)", fontSize: 12.5,
-                fontWeight: 600, cursor: "pointer", border: "1px solid",
-                fontFamily: "inherit", transition: "all .12s",
-                background:  filter === f.key ? f.color : f.bg,
-                color:       filter === f.key ? "#fff"  : f.color,
-                borderColor: filter === f.key ? f.color : f.border,
-                display: "flex", alignItems: "center", gap: 5,
-              }}
-            >
+            <button key={f.key} onClick={() => handleFilterChange(f.key)} style={{
+              padding:"6px 14px", borderRadius:"var(--r)", fontSize:12.5,
+              fontWeight:600, cursor:"pointer", border:"1px solid",
+              fontFamily:"inherit", transition:"all .12s",
+              background:  filter === f.key ? f.color : f.bg,
+              color:       filter === f.key ? "#fff"  : f.color,
+              borderColor: filter === f.key ? f.color : f.border,
+              display:"flex", alignItems:"center", gap:5,
+            }}>
+              {/* Today filter gets a calendar icon */}
+              {f.key === "TODAY" && <i className="ti ti-calendar-today" style={{ fontSize:12 }} />}
               {f.label}
-              {f.key === "PENDING" && stats.pending > 0 && (
-                <span style={{ background: filter === "PENDING" ? "rgba(255,255,255,0.3)" : "#d97706", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 20 }}>
-                  {stats.pending}
-                </span>
-              )}
-              {f.key === "OVERDUE" && stats.overdue > 0 && (
-                <span style={{ background: filter === "OVERDUE" ? "rgba(255,255,255,0.3)" : "#7c3aed", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 20 }}>
-                  {stats.overdue}
+              {f.count !== null && f.count > 0 && (
+                <span style={{
+                  background: filter === f.key ? "rgba(255,255,255,0.3)" : f.color,
+                  color:"#fff", fontSize:10, fontWeight:700,
+                  padding:"1px 6px", borderRadius:20, lineHeight:"16px",
+                }}>
+                  {f.count}
                 </span>
               )}
             </button>
           ))}
 
-          <div className="kb-search" style={{ flex: 1, minWidth: 220 }}>
+          <div className="kb-search" style={{ flex:1, minWidth:220 }}>
             <i className="ti ti-search" />
             <input
               placeholder="Search customer, PAN, invoice, cheque no, bank…"
@@ -230,31 +219,43 @@ function Cheques() {
           </div>
 
           {(search || filter !== "ALL") && (
-            <button className="kb-btn kb-btn-outline" style={{ padding: "5px 10px", fontSize: 11.5 }}
+            <button className="kb-btn kb-btn-outline" style={{ padding:"5px 10px", fontSize:11.5 }}
               onClick={() => { setSearch(""); handleFilterChange("ALL"); }}>
               <i className="ti ti-x" /> Clear
             </button>
           )}
         </div>
+
+        {/* Today filter info strip */}
+        {filter === "TODAY" && (
+          <div style={{
+            marginTop:10, padding:"8px 12px",
+            background:"#ecfeff", border:"1px solid #a5f3fc",
+            borderRadius:"var(--r)", fontSize:12.5,
+            color:"#0891b2", display:"flex", alignItems:"center", gap:7,
+          }}>
+            <i className="ti ti-calendar-today" style={{ fontSize:14 }} />
+            Showing cheques with date matching <strong>today — {new Date().toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</strong>
+            {todayCount === 0 && <span style={{ marginLeft:6, opacity:.7 }}>(none found)</span>}
+          </div>
+        )}
       </div>
 
-      {/* ── Cheques Table ── */}
+      {/* ── Cheques table ─────────────────────────────── */}
       <div className="kb-card">
         <div className="kb-card-header">
           <h2 className="kb-card-title">
-            <i className="ti ti-checkup-list" /> Cheque List
+            <i className="ti ti-checkup-list" style={{ color:"var(--blue-m)" }} /> Cheque List
           </h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {loading && (
-              <div style={{ width: 16, height: 16, border: "2px solid #e2e8f0", borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
-            )}
-            <span style={{ fontSize: 12, color: "var(--t3)", background: "var(--bg-surface)", border: "var(--border)", borderRadius: "var(--r)", padding: "3px 10px" }}>
-              {totalCount} cheques
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {loading && <div style={{ width:16, height:16, border:"2px solid #e2e8f0", borderTopColor:"var(--brand)", borderRadius:"50%", animation:"spin .7s linear infinite" }} />}
+            <span style={{ fontSize:12, color:"var(--t3)", background:"var(--bg-surface)", border:"var(--border)", borderRadius:"var(--r)", padding:"3px 10px" }}>
+              {filter === "TODAY" ? `${displayedCheques.length} cheques` : `${totalCount} cheques`}
             </span>
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX:"auto" }}>
           <table className="kb-table">
             <thead>
               <tr>
@@ -263,7 +264,7 @@ function Cheques() {
                 <th>PAN</th>
                 <th>Cheque No</th>
                 <th>Bank</th>
-                <th>Amount</th>
+                <th className="text-end">Amount</th>
                 <th>Date</th>
                 <th>Status</th>
                 <th>Days</th>
@@ -272,75 +273,74 @@ function Cheques() {
             </thead>
             <tbody>
               {loading && cheques.length === 0 ? (
-                [...Array(6)].map((_, i) => (
+                [...Array(6)].map((_,i) => (
                   <tr key={i}>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 80 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: "70%" }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 60 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 60 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 70 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 70 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 70 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 18, width: 70, borderRadius: 20 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 11, width: 50 }} /></td>
-                    <td><div className="kb-skeleton" style={{ height: 28, width: 100, borderRadius: "var(--r)" }} /></td>
+                    {[80,120,70,70,80,80,90,80,60,120].map((w,j) => (
+                      <td key={j}><div className="kb-skeleton" style={{ height:11, width:w }} /></td>
+                    ))}
                   </tr>
                 ))
-              ) : cheques.length === 0 ? (
+              ) : displayedCheques.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: "center", padding: "40px", color: "var(--t3)" }}>
-                    <i className="ti ti-file-off" style={{ fontSize: 28, display: "block", marginBottom: 8 }} />
-                    No cheques found
+                  <td colSpan={10} style={{ textAlign:"center", padding:"40px", color:"var(--t3)" }}>
+                    <i className={`ti ${filter === "TODAY" ? "ti-calendar-off" : "ti-file-off"}`} style={{ fontSize:28, display:"block", marginBottom:8 }} />
+                    {filter === "TODAY" ? "No cheques due today" : "No cheques found"}
                   </td>
                 </tr>
               ) : (
-                cheques.map((cheque) => {
+                displayedCheques.map(cheque => {
                   const today      = new Date();
                   const chequeDate = new Date(cheque.chequeDate);
                   const daysLeft   = Math.ceil((chequeDate - today) / (1000 * 60 * 60 * 24));
-                  const overdueCheque = isOverdue(cheque);
+                  const overdue    = isOverdue(cheque);
+                  const todayCheque = isToday(cheque);
 
                   return (
-                    <tr key={cheque._id} style={overdueCheque ? { background: "#fef2f2" } : {}}>
+                    <tr key={cheque._id} style={
+                      overdue    ? { background:"#fef2f2" } :
+                      todayCheque ? { background:"#ecfeff" } : {}
+                    }>
                       <td>
-                        <Link to={`/invoice/${cheque._id}`} style={{ color: "var(--brand)", fontWeight: 600, fontSize: 12, fontFamily: "monospace", textDecoration: "none" }}>
+                        <Link to={`/invoice/${cheque._id}`} style={{ color:"var(--brand)", fontWeight:600, fontSize:12, fontFamily:"monospace", textDecoration:"none" }}>
                           INV-{cheque._id.slice(-6).toUpperCase()}
                         </Link>
                       </td>
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, background: "var(--blue-b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "var(--blue-m)", textTransform: "uppercase" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, background:"var(--blue-b)", display:"grid", placeItems:"center", fontSize:10, fontWeight:700, color:"var(--blue-m)", textTransform:"uppercase" }}>
                             {cheque.customer?.name?.charAt(0) || "?"}
                           </span>
-                          <strong style={{ color: "var(--t1)", fontSize: 12.5 }}>{cheque.customer?.name}</strong>
+                          <strong style={{ color:"var(--t1)", fontSize:12.5 }}>{cheque.customer?.name || "Walk-in"}</strong>
                         </div>
                       </td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--t2)" }}>
-                        {cheque.customer?.panNumber || <span style={{ color: "var(--t3)" }}>—</span>}
+                      <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--t2)" }}>
+                        {cheque.customer?.panNumber || <span style={{ color:"var(--t3)" }}>—</span>}
                       </td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--t2)" }}>{cheque.chequeNumber || "—"}</td>
-                      <td style={{ color: "var(--t2)", fontSize: 12.5 }}>{cheque.bankName || "—"}</td>
-                      <td style={{ fontWeight: 700, color: "var(--t1)" }}>Rs. {cheque.totalAmount?.toLocaleString()}</td>
-                      <td style={{ color: "var(--t2)", fontSize: 12.5, whiteSpace: "nowrap" }}>
-                        {new Date(cheque.chequeDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--t2)" }}>{cheque.chequeNumber || "—"}</td>
+                      <td style={{ color:"var(--t2)", fontSize:12.5 }}>{cheque.bankName || "—"}</td>
+                      <td className="text-end" style={{ fontWeight:700, color:"var(--t1)" }}>Rs. {cheque.totalAmount?.toLocaleString()}</td>
+                      <td style={{ color:"var(--t2)", fontSize:12.5, whiteSpace:"nowrap" }}>
+                        {new Date(cheque.chequeDate).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" })}
+                        {todayCheque && (
+                          <span style={{ marginLeft:6, fontSize:10, fontWeight:700, color:"#0891b2", background:"#ecfeff", padding:"1px 6px", borderRadius:10 }}>TODAY</span>
+                        )}
                       </td>
                       <td>{statusBadge(cheque)}</td>
                       <td>
-                        {daysLeft >= 0 ? (
-                          <span style={{ fontSize: 12, color: "var(--green-m)", fontWeight: 600 }}>{daysLeft}d left</span>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "var(--red-m)", fontWeight: 600 }}>{Math.abs(daysLeft)}d overdue</span>
-                        )}
+                        {daysLeft >= 0
+                          ? <span style={{ fontSize:12, color:"var(--green-m)", fontWeight:600 }}>{daysLeft}d left</span>
+                          : <span style={{ fontSize:12, color:"var(--red-m)", fontWeight:600 }}>{Math.abs(daysLeft)}d overdue</span>
+                        }
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 6 }}>
+                        <div style={{ display:"flex", gap:6 }}>
                           {cheque.chequeStatus !== "CLEARED" && (
-                            <button className="kb-btn kb-btn-success" style={{ padding: "5px 10px", fontSize: 11.5 }} onClick={() => updateStatus(cheque._id, "CLEARED")}>
+                            <button className="kb-btn kb-btn-success" style={{ padding:"5px 10px", fontSize:11.5 }} onClick={() => updateStatus(cheque._id, "CLEARED")}>
                               <i className="ti ti-check" /> Clear
                             </button>
                           )}
                           {cheque.chequeStatus !== "BOUNCED" && (
-                            <button className="kb-btn kb-btn-danger" style={{ padding: "5px 10px", fontSize: 11.5 }} onClick={() => updateStatus(cheque._id, "BOUNCED")}>
+                            <button className="kb-btn kb-btn-danger" style={{ padding:"5px 10px", fontSize:11.5 }} onClick={() => updateStatus(cheque._id, "BOUNCED")}>
                               <i className="ti ti-x" /> Bounce
                             </button>
                           )}
@@ -354,13 +354,12 @@ function Cheques() {
           </table>
         </div>
 
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "var(--border)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        {totalPages > 1 && filter !== "TODAY" && (
+          <div style={{ marginTop:14, paddingTop:14, borderTop:"var(--border)", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
-            <div style={{ fontSize: 12, color: "var(--t3)" }}>
-              Page <strong style={{ color: "var(--t1)" }}>{currentPage}</strong> of <strong style={{ color: "var(--t1)" }}>{totalPages}</strong>
-              {" · "}showing {((currentPage - 1) * 15) + 1}–{Math.min(currentPage * 15, totalCount)} of {totalCount} cheques
+            <div style={{ fontSize:12, color:"var(--t3)" }}>
+              Page <strong style={{ color:"var(--t1)" }}>{currentPage}</strong> of <strong style={{ color:"var(--t1)" }}>{totalPages}</strong>
+              {" · "}showing {((currentPage-1)*15)+1}–{Math.min(currentPage*15, totalCount)} of {totalCount} cheques
             </div>
           </div>
         )}
@@ -368,7 +367,7 @@ function Cheques() {
 
       <style>{`
         @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
       `}</style>
     </>
   );
