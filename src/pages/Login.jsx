@@ -70,8 +70,14 @@ function Login() {
   };
 
   const handleKey = (e) => {
-    if (e.key === "Enter") login();
-  };
+  if (e.key !== "Enter") return;
+
+  if (initialized) {
+    login();
+  } else {
+    createAdmin();
+  }
+};
 
   return (
     <>
@@ -411,6 +417,7 @@ function Login() {
                         setUsername(e.target.value);
                         setError("");
                       }}
+                      onKeyDown={handleKey}
                     />
                   </div>
                 </div>
@@ -428,6 +435,7 @@ function Login() {
                         setPassword(e.target.value);
                         setError("");
                       }}
+                      onKeyDown={handleKey}
                     />
                   </div>
                 </div>
@@ -450,6 +458,7 @@ function Login() {
                     placeholder="Enter administrator name"
                     value={setupName}
                     onChange={(e) => setSetupName(e.target.value)}
+                    onKeyDown={handleKey}
                   />
                 </div>
 
@@ -461,6 +470,7 @@ function Login() {
                     placeholder="Enter username"
                     value={setupUsername}
                     onChange={(e) => setSetupUsername(e.target.value)}
+                    onKeyDown={handleKey}
                   />
                 </div>
 
@@ -473,6 +483,7 @@ function Login() {
                     placeholder="Enter password"
                     value={setupPassword}
                     onChange={(e) => setSetupPassword(e.target.value)}
+                    onKeyDown={handleKey}
                   />
                 </div>
 
