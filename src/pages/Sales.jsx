@@ -188,9 +188,19 @@ export default function Sales() {
     catch (e) { console.error(e); }
   };
 
+  // The /customers endpoint now always returns a paginated shape
+  // ({ customers, currentPage, totalPages, ... }) rather than a bare array.
+  // This page needs the *full* customer list for the sale-form dropdown, so
+  // request a high limit and unwrap the `customers` key. We also keep the
+  // Array.isArray check so this still works if the endpoint shape changes
+  // back to a plain array in the future — that was the cause of the blank
+  // white screen (customers.filter() was being called on a non-array object).
   const fetchCustomers = async () => {
-    try { const r = await api.get("/customers"); setCustomers(r.data); }
-    catch (e) { console.error(e); }
+    try {
+      const r = await api.get("/customers?limit=1000");
+      const data = r.data;
+      setCustomers(Array.isArray(data) ? data : (data.customers ?? []));
+    } catch (e) { console.error(e); }
   };
 
   /* ── Cart helpers ─────────────────────────────────────── */
@@ -358,7 +368,8 @@ export default function Sales() {
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
     c.phone?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.panNumber?.toLowerCase().includes(customerSearch.toLowerCase())
+    c.panNumber?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.companyName?.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
   /* ── Summary stats ───────────────────────────────────── */
@@ -483,8 +494,15 @@ export default function Sales() {
                     }}>
                       {sale.customer ? sale.customer.name.slice(0, 2).toUpperCase() : <i className="ti ti-user" style={{ fontSize: 12 }} />}
                     </div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>
-                      {sale.customer?.name || "Walk-in Customer"}
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>
+                        {sale.customer?.name || "Walk-in Customer"}
+                      </div>
+                      {sale.customer?.companyName && (
+                        <div style={{ fontSize: 11, color: "var(--t3)" }}>
+                          {sale.customer.companyName}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -575,7 +593,7 @@ export default function Sales() {
                   <div className="kb-search" style={{ flex: 1 }}>
                     <i className="ti ti-search" />
                     <input
-                      placeholder="Search by name, phone or PAN…"
+                      placeholder="Search by name, company, phone or PAN…"
                       value={customerSearch}
                       onChange={e => { setCustomerSearch(e.target.value); setShowCustDrop(true); }}
                       onFocus={() => setShowCustDrop(true)}
@@ -597,6 +615,7 @@ export default function Sales() {
                         onMouseLeave={e => e.currentTarget.style.background = ""}
                       >
                         <strong>{c.name}</strong>
+                        {c.companyName && <span style={{ color: "var(--t3)", marginLeft: 8, fontSize: 11.5 }}>{c.companyName}</span>}
                         {c.phone && <span style={{ color: "var(--t3)", marginLeft: 8, fontSize: 11.5 }}>{c.phone}</span>}
                         {c.panNumber && <span style={{ color: "var(--t3)", marginLeft: 8, fontSize: 11.5, fontFamily: "monospace" }}>PAN: {c.panNumber}</span>}
                         {c.dueAmount > 0 && <span className="kb-badge red" style={{ marginLeft: 6, fontSize: 10 }}>Due: Rs.{c.dueAmount}</span>}
@@ -730,9 +749,14 @@ export default function Sales() {
                 <label className="kb-label">Select product</label>
                 <select className="kb-input" value={product} onChange={e => { setProduct(e.target.value); setSaleError(""); }}>
                   <option value="">Choose product…</option>
-                  {products.map(p => (
-                    <option key={p._id} value={p._id}>{p.name} — Rs.{p.sellingPrice} (Stock: {p.stock})</option>
-                  ))}
+                  {products.map(p => {
+                    const lotCode = [p.lotNo && `Lot ${p.lotNo}`, p.code && `Code ${p.code}`].filter(Boolean).join(" · ");
+                    return (
+                      <option key={p._id} value={p._id}>
+                        {p.name} — Rs.{p.sellingPrice} (Stock: {p.stock}){lotCode ? ` [${lotCode}]` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -745,6 +769,13 @@ export default function Sales() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: "var(--t1)" }}>{selectedProduct.name}</div>
                     <div style={{ fontSize: 12, color: "var(--t2)" }}>Rs. {selectedProduct.sellingPrice} · Stock: {selectedProduct.stock}</div>
+                    {(selectedProduct.lotNo || selectedProduct.code) && (
+                      <div style={{ fontSize: 11, color: "var(--t3)", fontFamily: "monospace" }}>
+                        {selectedProduct.lotNo && `Lot: ${selectedProduct.lotNo}`}
+                        {selectedProduct.lotNo && selectedProduct.code && "  ·  "}
+                        {selectedProduct.code && `Code: ${selectedProduct.code}`}
+                      </div>
+                    )}
                   </div>
                   {selectedProduct.stock <= selectedProduct.minimumStock && (
                     <span className="kb-badge amber"><i className="ti ti-alert-triangle" style={{ fontSize: 10 }} /> Low</span>
@@ -803,6 +834,13 @@ export default function Sales() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
                             <div style={{ fontSize: 11.5, color: "var(--t3)" }}>Rs.{p?.sellingPrice} × {item.quantity}</div>
+                            {(p?.lotNo || p?.code) && (
+                              <div style={{ fontSize: 10.5, color: "var(--t3)", fontFamily: "monospace" }}>
+                                {p?.lotNo && `Lot: ${p.lotNo}`}
+                                {p?.lotNo && p?.code && " · "}
+                                {p?.code && `Code: ${p.code}`}
+                              </div>
+                            )}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <button onClick={() => updateCartQty(item.product, item.quantity - 1)}

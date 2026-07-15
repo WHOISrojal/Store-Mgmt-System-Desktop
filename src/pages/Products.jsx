@@ -21,12 +21,15 @@ function Products() {
   const [historyProduct, setHistoryProduct] = useState(null);
   const [toast,          setToast]          = useState(null);
   const [deleteTarget,   setDeleteTarget]   = useState(null); // { id, name } pending delete confirmation
+  const [loading,        setLoading]        = useState(false);
 
   // form state
   const [editingId,    setEditingId]    = useState(null);
   const [name,         setName]         = useState("");
   const [category,     setCategory]     = useState("");
   const [barcode,      setBarcode]      = useState("");
+  const [lotNo,        setLotNo]        = useState("");
+  const [code,         setCode]         = useState("");
   const [image,        setImage]        = useState(null);
   const [imageName,    setImageName]    = useState("Choose Image");
   const [costPrice,    setCostPrice]    = useState("");
@@ -37,7 +40,26 @@ function Products() {
 
   const role = localStorage.getItem("role");
 
-  useEffect(() => { fetchProducts(currentPage); }, [currentPage]);
+  // Fetch on page / category change
+  useEffect(() => {
+    fetchProducts(currentPage, search, categoryFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, categoryFilter]);
+
+  // Debounced search — same pattern as Customers: if not on page 1, resetting
+  // to page 1 triggers the effect above; if already on page 1, fetch directly
+  // so we don't fire two overlapping requests.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchProducts(1, search, categoryFilter);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   /* ── Toast helper ─────────────────────────────────── */
   const showToast = (type, message) => {
@@ -46,9 +68,13 @@ function Products() {
   };
 
   /* ── Data fetching ────────────────────────────────── */
-  const fetchProducts = async (page = 1) => {
+  const fetchProducts = async (page = 1, q = "", cat = "All") => {
     try {
-      const r = await api.get(`/products?page=${page}`);
+      setLoading(true);
+      const params = new URLSearchParams({ page });
+      if (q.trim()) params.append("search", q.trim());
+      if (cat && cat !== "All") params.append("category", cat);
+      const r = await api.get(`/products?${params}`);
       setProducts(r.data.products);
       setCurrentPage(r.data.currentPage);
       setTotalPages(r.data.totalPages);
@@ -56,11 +82,13 @@ function Products() {
       setLowStockItems(r.data.lowStockItems);
       setInventoryValue(r.data.inventoryValue);
     } catch(e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   /* ── Form helpers ─────────────────────────────────── */
   const resetForm = () => {
     setEditingId(null); setName(""); setCategory(""); setBarcode("");
+    setLotNo(""); setCode("");
     setCostPrice(""); setSellingPrice(""); setStock(""); setMinimumStock("5");
     setUnit("pcs"); setImage(null); setImageName("Choose Image");
   };
@@ -77,12 +105,13 @@ function Products() {
     try {
       const fd = new FormData();
       fd.append("name", name); fd.append("category", category);
-      fd.append("barcode", barcode); fd.append("costPrice", Number(costPrice));
+      fd.append("barcode", barcode); fd.append("lotNo", lotNo); fd.append("code", code);
+      fd.append("costPrice", Number(costPrice));
       fd.append("sellingPrice", Number(sellingPrice)); fd.append("stock", Number(stock));
       fd.append("minimumStock", Number(minimumStock)); fd.append("unit", unit);
       if (image) fd.append("image", image);
       await api.post("/products", fd, { headers:{ "Content-Type":"multipart/form-data" } });
-      fetchProducts(currentPage);
+      fetchProducts(currentPage, search, categoryFilter);
       closeModal();
       showToast("success", `"${name}" added successfully!`);
     } catch(e) {
@@ -92,7 +121,8 @@ function Products() {
 
   const editProduct = (p) => {
     setEditingId(p._id); setName(p.name); setCategory(p.category);
-    setBarcode(p.barcode || ""); setCostPrice(p.costPrice);
+    setBarcode(p.barcode || ""); setLotNo(p.lotNo || ""); setCode(p.code || "");
+    setCostPrice(p.costPrice);
     setSellingPrice(p.sellingPrice); setStock(p.stock);
     setMinimumStock(p.minimumStock || 5); setUnit(p.unit || "pcs");
     setModalOpen(true);
@@ -102,11 +132,11 @@ function Products() {
     if (!name.trim()) return showToast("error", "Product name is required.");
     try {
       await api.put(`/products/${editingId}`, {
-        name, category, barcode,
+        name, category, barcode, lotNo, code,
         costPrice: Number(costPrice), sellingPrice: Number(sellingPrice),
         stock: Number(stock), minimumStock: Number(minimumStock), unit,
       });
-      fetchProducts(currentPage);
+      fetchProducts(currentPage, search, categoryFilter);
       closeModal();
       showToast("success", `"${name}" updated successfully!`);
     } catch(e) {
@@ -122,7 +152,7 @@ function Products() {
     if (!deleteTarget) return;
     try {
       await api.delete(`/products/${deleteTarget.id}`);
-      fetchProducts(currentPage);
+      fetchProducts(currentPage, search, categoryFilter);
       showToast("success", `"${deleteTarget.name}" deleted.`);
     } catch(e) {
       showToast("error", e?.response?.data?.message || "Failed to delete product.");
@@ -138,13 +168,6 @@ function Products() {
     } catch(e) { console.error(e); }
   };
 
-  /* ── Filtered list ────────────────────────────────── */
-  const filtered = products.filter(p => {
-    const matchName = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchCat  = categoryFilter === "All" || p.category === categoryFilter;
-    return matchName && matchCat;
-  });
-
   /* ── Shared modal styles ──────────────────────────── */
   const overlay = {
     position:"fixed", inset:0, background:"rgba(15,23,42,0.55)",
@@ -157,6 +180,8 @@ function Products() {
     display:"flex", flexDirection:"column",
     border:"var(--border)", boxShadow:"0 20px 60px rgba(0,0,0,0.2)",
   });
+
+  const baseCols = role === "ADMIN" ? 10 : 9;
 
   return (
     <>
@@ -224,15 +249,20 @@ function Products() {
       <div className="kb-card">
         <div className="kb-card-header">
           <h2 className="kb-card-title"><i className="ti ti-list" /> Product list</h2>
-          <span style={{ fontSize:12, color:"var(--t3)", background:"var(--bg-surface)", border:"var(--border)", borderRadius:"var(--r)", padding:"3px 10px" }}>
-            {filtered.length} of {totalProducts} items
-          </span>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {loading && (
+              <div style={{ width:16, height:16, border:"2px solid #e2e8f0", borderTopColor:"var(--brand)", borderRadius:"50%", animation:"spin .7s linear infinite" }} />
+            )}
+            <span style={{ fontSize:12, color:"var(--t3)", background:"var(--bg-surface)", border:"var(--border)", borderRadius:"var(--r)", padding:"3px 10px" }}>
+              {totalProducts} items
+            </span>
+          </div>
         </div>
 
         <div style={{ display:"flex", gap:10, marginBottom:16 }}>
           <div className="kb-search" style={{ flex:1 }}>
             <i className="ti ti-search" />
-            <input placeholder="Search products by name…" value={search} onChange={e => setSearch(e.target.value)} />
+            <input placeholder="Search by name, category, barcode, lot no or code…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <select className="kb-input" style={{ width:200 }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
             <option value="All">All Categories</option>
@@ -248,6 +278,8 @@ function Products() {
                 <th>Product</th>
                 <th>Category</th>
                 <th>Barcode</th>
+                <th>Lot No</th>
+                <th>Code</th>
                 {role === "ADMIN" && <th className="text-end">Cost</th>}
                 <th className="text-end">Price</th>
                 <th className="text-end">Stock</th>
@@ -255,14 +287,14 @@ function Products() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {products.length === 0 ? (
                 <tr>
-                  <td colSpan={role === "ADMIN" ? 8 : 7} style={{ textAlign:"center", padding:40, color:"var(--t3)" }}>
+                  <td colSpan={baseCols} style={{ textAlign:"center", padding:40, color:"var(--t3)" }}>
                     <i className="ti ti-package-off" style={{ fontSize:28, display:"block", marginBottom:8 }} />
                     No products found
                   </td>
                 </tr>
-              ) : filtered.map(p => {
+              ) : products.map(p => {
                 const isLow = p.stock <= p.minimumStock;
                 return (
                   <tr key={p._id} style={isLow ? { background:"#fef2f2" } : {}}>
@@ -280,6 +312,8 @@ function Products() {
                     </td>
                     <td><span className="kb-badge blue">{p.category}</span></td>
                     <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--t3)" }}>{p.barcode || "—"}</td>
+                    <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--t3)" }}>{p.lotNo || "—"}</td>
+                    <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--t3)" }}>{p.code || "—"}</td>
                     {role === "ADMIN" && <td className="text-end" style={{ color:"var(--t2)" }}>Rs. {p.costPrice?.toLocaleString()}</td>}
                     <td className="text-end"><strong>Rs. {p.sellingPrice?.toLocaleString()}</strong></td>
                     <td className="text-end">
@@ -350,6 +384,8 @@ function Products() {
                   </select>
                 </div>
                 <div><label className="kb-label">Barcode</label><input className="kb-input" placeholder="e.g. 8901234567890" value={barcode} onChange={e => setBarcode(e.target.value)} /></div>
+                <div><label className="kb-label">Lot No</label><input className="kb-input" placeholder="e.g. 3-65(609)" value={lotNo} onChange={e => setLotNo(e.target.value)} /></div>
+                <div><label className="kb-label">Code</label><input className="kb-input" placeholder="e.g. 904" value={code} onChange={e => setCode(e.target.value)} /></div>
                 <div><label className="kb-label">Unit</label>
                   <select className="kb-input" value={unit} onChange={e => setUnit(e.target.value)}>
                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -493,6 +529,7 @@ function Products() {
 
       <style>{`
         @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes spin    { to { transform: rotate(360deg); } }
       `}</style>
     </>
   );

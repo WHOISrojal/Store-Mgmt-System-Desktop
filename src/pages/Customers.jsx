@@ -9,6 +9,7 @@ function Customers() {
   const [phone, setPhone] = useState("");
   const [panNumber, setPanNumber] = useState("");
   const [address, setAddress] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages,  setTotalPages]  = useState(1);
@@ -24,16 +25,26 @@ function Customers() {
 
   const role = localStorage.getItem("role");
 
+  // Fetch whenever the page changes (pagination clicks, or search resetting to page 1 below)
   useEffect(() => {
     fetchCustomers(currentPage, search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
+  // Debounce search input. If we're not already on page 1, changing the page
+  // triggers the effect above (single fetch). If we're already on page 1,
+  // setCurrentPage(1) would be a no-op and wouldn't re-fire that effect, so
+  // we fetch directly instead. This avoids firing two overlapping requests.
   useEffect(() => {
     const t = setTimeout(() => {
-      setCurrentPage(1);
-      fetchCustomers(1, search);
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchCustomers(1, search);
+      }
     }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const showToast = (type, message) => {
@@ -76,7 +87,7 @@ function Customers() {
   };
 
   const closeAddModal = () => {
-    setName(""); setPhone(""); setPanNumber(""); setAddress("");
+    setName(""); setPhone(""); setPanNumber(""); setAddress(""); setCompanyName("");
     setAddModalOpen(false);
   };
 
@@ -86,7 +97,7 @@ function Customers() {
       return;
     }
     try {
-      await api.post("/customers", { name, phone, panNumber, address });
+      await api.post("/customers", { name, phone, panNumber, address, companyName });
       fetchCustomers(currentPage, search);
       closeAddModal();
       showToast("success", "Customer added successfully!");
@@ -247,6 +258,7 @@ function Customers() {
             <thead>
               <tr>
                 <th>Customer</th>
+                <th>Company</th>
                 <th>Phone</th>
                 <th>PAN</th>
                 <th>Address</th>
@@ -260,6 +272,7 @@ function Customers() {
                   <tr key={i}>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "70%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "60%" }} /></td>
+                    <td><div className="kb-skeleton" style={{ height: 11, width: "60%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "50%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 11, width: "60%" }} /></td>
                     <td><div className="kb-skeleton" style={{ height: 18, width: 70, borderRadius: 20 }} /></td>
@@ -268,7 +281,7 @@ function Customers() {
                 ))
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "40px", color: "var(--t3)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "var(--t3)" }}>
                     <i className="ti ti-users-off" style={{ fontSize: "28px", display: "block", marginBottom: "8px" }} />
                     No customers found
                   </td>
@@ -289,6 +302,16 @@ function Customers() {
                         </span>
                         <strong style={{ color: "var(--t1)" }}>{customer.name}</strong>
                       </div>
+                    </td>
+
+                    {/* Company */}
+                    <td>
+                      {customer.companyName ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--t2)" }}>
+                          <i className="ti ti-building" style={{ fontSize: "13px", color: "var(--t3)" }} />
+                          {customer.companyName}
+                        </div>
+                      ) : <span style={{ color: "var(--t3)" }}>—</span>}
                     </td>
 
                     {/* Phone */}
@@ -419,6 +442,10 @@ function Customers() {
               <div>
                 <label className="kb-label">Customer Name</label>
                 <input className="kb-input" placeholder="e.g. Ram Bahadur" value={name} onChange={e => setName(e.target.value)} />
+              </div>
+              <div>
+                <label className="kb-label">Company Name <span style={{ color: "var(--t3)", fontWeight: 400 }}>(optional)</span></label>
+                <input className="kb-input" placeholder="e.g. Everest Traders Pvt. Ltd." value={companyName} onChange={e => setCompanyName(e.target.value)} />
               </div>
               <div>
                 <label className="kb-label">Phone Number</label>

@@ -101,6 +101,12 @@ export default function CustomerLedger() {
             </div>
             <div>
               <div style={{ fontWeight:700, fontSize:15, color:"var(--t1)", marginBottom:3 }}>{customer.name}</div>
+              {customer.companyName && (
+                <div style={{ fontSize:12.5, color:"var(--t2)", display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                  <i className="ti ti-building" style={{ fontSize:13, color:"var(--t3)" }} />
+                  {customer.companyName}
+                </div>
+              )}
               {customer.phone && (
                 <div style={{ fontSize:12.5, color:"var(--t2)", display:"flex", alignItems:"center", gap:5 }}>
                   <i className="ti ti-phone" style={{ fontSize:13, color:"var(--t3)" }} />

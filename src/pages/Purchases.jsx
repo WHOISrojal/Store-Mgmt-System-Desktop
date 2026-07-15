@@ -26,6 +26,8 @@ function Purchases() {
   const [newName,         setNewName]         = useState("");
   const [newCategory,     setNewCategory]      = useState("");
   const [newBarcode,      setNewBarcode]       = useState("");
+  const [newLotNo,        setNewLotNo]         = useState("");
+  const [newCode,         setNewCode]          = useState("");
   const [newUnit,         setNewUnit]          = useState("pcs");
   const [newSellingPrice, setNewSellingPrice]  = useState("");
   const [newMinimumStock, setNewMinimumStock]  = useState("5");
@@ -95,6 +97,7 @@ function Purchases() {
   const resetForm = () => {
     setSupplier(""); setQuantity(""); setCostPrice(""); setInvoiceNumber("");
     setNewName(""); setNewCategory(""); setNewBarcode("");
+    setNewLotNo(""); setNewCode("");
     setNewUnit("pcs"); setNewSellingPrice(""); setNewMinimumStock("5");
   };
 
@@ -117,6 +120,8 @@ function Purchases() {
           name: newName.trim(),
           category: newCategory,
           barcode: newBarcode,
+          lotNo: newLotNo,
+          code: newCode,
           unit: newUnit,
           sellingPrice: Number(newSellingPrice),
           minimumStock: Number(newMinimumStock) || 5,
@@ -366,6 +371,14 @@ function Purchases() {
                     <div>
                       <label className="kb-label">Barcode <span style={{ color: "var(--t3)", fontWeight: 400 }}>(optional)</span></label>
                       <input className="kb-input" placeholder="e.g. 8901234567890" value={newBarcode} onChange={e => setNewBarcode(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="kb-label">Lot No <span style={{ color: "var(--t3)", fontWeight: 400 }}>(optional)</span></label>
+                      <input className="kb-input" placeholder="e.g. 3-65(609)" value={newLotNo} onChange={e => setNewLotNo(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="kb-label">Code <span style={{ color: "var(--t3)", fontWeight: 400 }}>(optional)</span></label>
+                      <input className="kb-input" placeholder="e.g. 904" value={newCode} onChange={e => setNewCode(e.target.value)} />
                     </div>
                     <div>
                       <label className="kb-label">Selling Price (Rs.)</label>
